@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pilly - AI 기반 약 정보 검색</title>
     <!-- ✅ CSS 분리 -->
-    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
     <!-- Background Decorations -->
@@ -15,8 +15,8 @@
         <div class="blob blob-3"></div>
     </div>
 
-    <!-- ✅ Header 자리 (partials/header.html에서 로드) -->
-    <link rel="stylesheet" href="../partials/header.html">
+    <!-- ✅ Header (서버사이드 include) -->
+    <link rel="stylesheet" href="../templates/partials/header.html">
 
     <!-- Hero Section -->
     <section class="hero">
@@ -396,9 +396,7 @@
             <button class="cta-button" onclick="scrollToUpload()">사진 업로드하기</button>
         </div>
     </section>
-
- 
-
+    <!-- Final CTA 끝 -->
     <!-- Result Modal -->
     <div class="modal" id="resultModal">
         <div class="modal-content">
@@ -446,9 +444,11 @@
             </div>
         </div>
     </div>
-   <!-- ✅ Footer 자리 (partials/footer.html에서 로드) -->
-    <link rel="stylesheet" href="../partials/footer.html">
+    <!-- ✅ Footer (서버사이드 include) -->
+<link rel="stylesheet" href="../templates/partials/footer.html">
     <!-- ✅ JS 분리 -->
-    <script src="js/main.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script src="/js/main.js"></script>
+
 </body>
 </html>

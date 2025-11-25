@@ -1,3 +1,7 @@
+axios.get("http://127.0.0.1:8000/pills?keyword=타이레놀")
+     .then(res => console.log(res.data));
+
+
 // 공통 fragment 로더 (header/footer)
 function loadFragment(targetId, url) {
     const container = document.getElementById(targetId);
@@ -154,6 +158,16 @@ function initCounters() {
 
 // ✅ 하나로 합친 DOMContentLoaded
 document.addEventListener('DOMContentLoaded', () => {
+    const searchBtn = document.getElementById('searchBtn');
+    const searchInput = document.getElementById('searchInput');
+
+    searchBtn.addEventListener('click',async() => {
+        const keyword = input.value;
+        const res= await axios.get(`http://127.0.0.1:8000/pills?keyword=${keyword}`);
+        console.log(res.data);
+    });
+});
+    
     // header / footer 로드
     loadFragment('header-placeholder', 'partials/header.html');
     loadFragment('footer-placeholder', 'partials/footer.html');
@@ -184,4 +198,3 @@ document.addEventListener('DOMContentLoaded', () => {
     initFAQ();
     initScrollAnimations();
     initCounters();
-});
