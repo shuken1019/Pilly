@@ -1,5 +1,5 @@
 axios.get("http://127.0.0.1:8000/pills?keyword=타이레놀")
-     .then(res => console.log(res.data));
+    .then(res => console.log(res.data));
 
 
 // 공통 fragment 로더 (header/footer)
@@ -158,15 +158,138 @@ function initCounters() {
 
 // ✅ 하나로 합친 DOMContentLoaded
 document.addEventListener('DOMContentLoaded', () => {
+    // ===== Search Functionality =====
+    
+    // Tab switching
+    const searchTabs = document.querySelectorAll('.search-tab');
+    const searchContents = document.querySelectorAll('.search-content');
+    
+    searchTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const targetTab = tab.dataset.tab;
+            
+            // Remove active class from all tabs and contents
+            searchTabs.forEach(t => t.classList.remove('active'));
+            searchContents.forEach(c => c.classList.remove('active'));
+            
+            // Add active class to clicked tab and corresponding content
+            tab.classList.add('active');
+            document.getElementById(`${targetTab}-search`).classList.add('active');
+        });
+    });
+
+    // Name Search
+    const nameSearchInput = document.getElementById('nameSearchInput');
+    const nameSearchBtn = document.getElementById('nameSearchBtn');
+    const nameClearBtn = document.getElementById('nameClearBtn');
+
+    if (nameSearchBtn && nameSearchInput) {
+        nameSearchBtn.addEventListener('click', async () => {
+            const keyword = nameSearchInput.value.trim();
+            if (!keyword) {
+                alert('약 이름을 입력해주세요.');
+                return;
+            }
+            try {
+                const res = await axios.get(`http://127.0.0.1:8000/pills?keyword=${keyword}`);
+                console.log('약 이름 검색 결과:', res.data);
+                // TODO: 결과를 화면에 표시하는 기능 추가
+                alert(`검색 완료: ${res.data.length || 0}개의 결과`);
+            } catch (error) {
+                console.error('검색 오류:', error);
+                alert('검색 중 오류가 발생했습니다.');
+            }
+        });
+
+        // Enter key search
+        nameSearchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                nameSearchBtn.click();
+            }
+        });
+    }
+
+    if (nameClearBtn && nameSearchInput) {
+        nameClearBtn.addEventListener('click', () => {
+            nameSearchInput.value = '';
+            nameSearchInput.focus();
+        });
+    }
+
+    // Mark Search (식별문자)
+    const frontMarkInput = document.getElementById('frontMarkInput');
+    const backMarkInput = document.getElementById('backMarkInput');
+    const markSearchBtn = document.getElementById('markSearchBtn');
+
+    if (markSearchBtn) {
+        markSearchBtn.addEventListener('click', async () => {
+            const frontMark = frontMarkInput.value.trim();
+            const backMark = backMarkInput.value.trim();
+            
+            if (!frontMark && !backMark) {
+                alert('앞면 또는 뒷면 글자를 하나 이상 입력해주세요.');
+                return;
+            }
+
+            try {
+                let url = 'http://127.0.0.1:8000/pills?';
+                if (frontMark) url += `front_mark=${frontMark}&`;
+                if (backMark) url += `back_mark=${backMark}`;
+                
+                const res = await axios.get(url);
+                console.log('식별문자 검색 결과:', res.data);
+                // TODO: 결과를 화면에 표시하는 기능 추가
+                alert(`검색 완료: ${res.data.length || 0}개의 결과`);
+            } catch (error) {
+                console.error('검색 오류:', error);
+                alert('검색 중 오류가 발생했습니다.');
+            }
+        });
+    }
+
+    // Visual Search (색/모양)
+    const colorFilter = document.getElementById('colorFilter');
+    const shapeFilter = document.getElementById('shapeFilter');
+    const visualSearchBtn = document.getElementById('visualSearchBtn');
+
+    if (visualSearchBtn) {
+        visualSearchBtn.addEventListener('click', async () => {
+            const color = colorFilter.value;
+            const shape = shapeFilter.value;
+            
+            if (!color && !shape) {
+                alert('색상 또는 모양을 하나 이상 선택해주세요.');
+                return;
+            }
+
+            try {
+                let url = 'http://127.0.0.1:8000/pills?';
+                if (color) url += `color=${color}&`;
+                if (shape) url += `shape=${shape}`;
+                
+                const res = await axios.get(url);
+                console.log('색/모양 검색 결과:', res.data);
+                // TODO: 결과를 화면에 표시하는 기능 추가
+                alert(`검색 완료: ${res.data.length || 0}개의 결과`);
+            } catch (error) {
+                console.error('검색 오류:', error);
+                alert('검색 중 오류가 발생했습니다.');
+            }
+        });
+    }
+
+    // ===== End Search Functionality =====
+
     const searchBtn = document.getElementById('searchBtn');
     const searchInput = document.getElementById('searchInput');
-
-    searchBtn.addEventListener('click',async() => {
-        const keyword = input.value;
+    
+    if(searchBtn && searchInput){
+        searchBtn.addEventListener('click',async() => {
+        const keyword = searchInput.value;
         const res= await axios.get(`http://127.0.0.1:8000/pills?keyword=${keyword}`);
         console.log(res.data);
     });
-});
+}
     
     // header / footer 로드
     loadFragment('header-placeholder', 'partials/header.html');
@@ -182,9 +305,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const modal = document.getElementById('resultModal');
     if (modal) {
         modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                closeModal();
-            }
+            if (e.target === modal) closeModal();
+            
         });
     }
 
@@ -198,3 +320,4 @@ document.addEventListener('DOMContentLoaded', () => {
     initFAQ();
     initScrollAnimations();
     initCounters();
+});

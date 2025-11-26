@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pilly - AI 기반 약 정보 검색</title>
+    <!-- ✅ CSS 분리 -->
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+        <!-- ✅ Header (서버사이드 include) -->
+    <div id="header-placeholder"> </div>
+<!-- Search Section -->
+    <section class="search-section" id="search">
+        <div class="search-container">
+            <div class="search-header">
+                <h2>약 검색하기</h2>
+                <p>약 이름이나 식별문자로 빠르게 검색하세요</p>
+                <div class="version-badge">📌 Pilly v1.0 (검색형 웹/앱)</div>
+            </div>
+
+            <div class="search-box">
+                <div class="search-tabs">
+                    <button class="search-tab active" data-tab="name">약 이름 검색</button>
+                    <button class="search-tab" data-tab="mark">식별문자 검색</button>
+                    <button class="search-tab" data-tab="visual">색/모양 검색</button>
+                </div>
+
+                <!-- 약 이름 검색 -->
+                <div class="search-content active" id="name-search">
+                    <div class="search-input-group">
+                        <div class="search-input-wrapper">
+                            <span class="search-icon">🔍</span>
+                            <input 
+                                type="text" 
+                                id="nameSearchInput" 
+                                placeholder="약 이름을 입력하세요 (예: 타이레놀, 게보린)"
+                                class="search-input"
+                            />
+                            <button class="clear-btn" id="nameClearBtn">×</button>
+                        </div>
+                        <button class="search-button" id="nameSearchBtn">검색</button>
+                    </div>
+                    <p class="search-tip">💡 품목명 또는 제품명으로 검색 가능합니다</p>
+                </div>
+
+                <!-- 식별문자 검색 -->
+                <div class="search-content" id="mark-search">
+                    <div class="mark-inputs">
+                        <div class="mark-input-group">
+                            <label>앞면 글자</label>
+                            <input 
+                                type="text" 
+                                id="frontMarkInput" 
+                                placeholder="예: AP"
+                                class="mark-input"
+                            />
+                        </div>
+                        <div class="mark-divider">+</div>
+                        <div class="mark-input-group">
+                            <label>뒷면 글자</label>
+                            <input 
+                                type="text" 
+                                id="backMarkInput" 
+                                placeholder="예: 500"
+                                class="mark-input"
+                            />
+                        </div>
+                    </div>
+                    <button class="search-button full-width" id="markSearchBtn">식별문자로 검색</button>
+                    <p class="search-tip">💡 한쪽 면만 입력해도 검색 가능합니다</p>
+                </div>
+
+                <!-- 색/모양 검색 -->
+                <div class="search-content" id="visual-search">
+                    <div class="filter-grid">
+                        <div class="filter-group">
+                            <label>색상</label>
+                            <select id="colorFilter" class="filter-select">
+                                <option value="">색상 선택</option>
+                                <option value="white">하양</option>
+                                <option value="yellow">노랑</option>
+                                <option value="pink">분홍</option>
+                                <option value="blue">파랑</option>
+                                <option value="green">초록</option>
+                                <option value="orange">주황</option>
+                                <option value="red">빨강</option>
+                                <option value="brown">갈색</option>
+                                <option value="gray">회색</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label>모양</label>
+                            <select id="shapeFilter" class="filter-select">
+                                <option value="">모양 선택</option>
+                                <option value="circle">원형</option>
+                                <option value="oval">타원형</option>
+                                <option value="rectangle">장방형</option>
+                                <option value="square">사각형</option>
+                                <option value="triangle">삼각형</option>
+                                <option value="diamond">마름모형</option>
+                                <option value="capsule">캡슐형</option>
+                                <option value="hexagon">육각형</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="search-button full-width" id="visualSearchBtn">색/모양으로 검색</button>
+                    <p class="search-tip">💡 조건을 조합하여 더 정확한 결과를 얻을 수 있습니다</p>
+                </div>
+            </div>
+
+            <div class="search-features">
+                <div class="search-feature-item">
+                    <span class="feature-icon-small">✅</span>
+                    <span>텍스트/속성 검색 지원</span>
+                </div>
+                <div class="search-feature-item">
+                    <span class="feature-icon-small">❌</span>
+                    <span>사진 인식 미지원 (v2.0 예정)</span>
+                </div>
+                <div class="search-feature-item">
+                    <span class="feature-icon-small">📊</span>
+                    <span>50,000+ 약품 데이터베이스</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+      <!-- How It Works -->
+    <section class="how-it-works" id="how">
+        <div class="how-container">
+            <h2>사용 방법</h2>
+            
+            <div class="steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h3>약 사진 촬영 또는 업로드</h3>
+                        <p>스마트폰으로 약을 촬영하거나 기존 사진을 업로드하세요. 알약의 앞뒷면이 잘 보이도록 촬영하면 더 정확합니다.</p>
+                    </div>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h3>AI 분석</h3>
+                        <p>우리의 AI 기술이 약의 모양, 색상, 각인 문자를 분석하여 어떤 약인지 식별합니다. 수초 내에 결과가 나옵니다.</p>
+                    </div>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h3>상세 정보 확인</h3>
+                        <p>약의 이름, 성분, 효능, 복용법, 주의사항 등 모든 정보를 한 화면에서 확인할 수 있습니다. 이해하기 어려운 의학 용어는 쉽게 풀어서 설명합니다.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+        <!-- ✅ Footer (서버사이드 include) -->
+    <div id="footer-placeholder"> </div>
+    <!-- ✅ JS 분리 -->
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script src="/js/main.js"></script>
+
+</body>
+</html>
