@@ -106,3 +106,46 @@ export const searchPillsByVisual = async (
     return [];
   }
 };
+
+// src/services/api.ts
+
+export interface Pill {
+  item_seq: string;
+  item_name: string;
+  entp_name: string;
+  drug_shape: string | null;
+  color_class1: string | null;
+  color_class2: string | null;
+  print_front: string | null;
+  print_back: string | null;
+  item_image: string | null;
+}
+
+export interface PillSearchResponse {
+  keyword: string;
+  page: number;
+  page_size: number;
+  total: number;
+  items: Pill[];
+}
+
+const BASE_URL = "http://127.0.0.1:8000"; // FastAPI 주소
+
+export async function searchPills(
+  keyword: string,
+  page = 1
+): Promise<PillSearchResponse> {
+  const params = new URLSearchParams({
+    keyword,
+    page: String(page),
+  });
+
+  const res = await fetch(`${BASE_URL}/api/pills?${params.toString()}`);
+
+  if (!res.ok) {
+    throw new Error("약 검색에 실패했습니다.");
+  }
+
+  const data = (await res.json()) as PillSearchResponse;
+  return data;
+}
