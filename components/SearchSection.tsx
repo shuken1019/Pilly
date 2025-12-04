@@ -1,104 +1,634 @@
 // src/components/SearchSection.tsx
 import React, { useState } from "react";
-import { searchPills, Pill } from "../services/api";
+import {
+  Search,
+  Pill as PillIcon,
+  AlertCircle,
+  Filter,
+  ChevronDown,
+  ChevronUp,
+  Check,
+  MousePointerClick,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+} from "lucide-react";
+import { searchPills, Pill, SearchFilters,getPillDetail } from "../services/api";
+import PillDetailModal from "./PillDetailModal";
+
+// --- 상수 데이터 정의 ---
+
+const SHAPES = [
+  { label: "원형", value: "원형" },
+  { label: "타원형", value: "타원형" },
+  { label: "장방형", value: "장방형" },
+  { label: "삼각형", value: "삼각형" },
+  { label: "사각형", value: "사각형" },
+  { label: "마름모", value: "마름모" },
+  { label: "오각형", value: "오각형" },
+  { label: "육각형", value: "육각형" },
+  { label: "팔각형", value: "팔각형" },
+];
+
+const COLORS = [
+  { label: "하양", value: "하양", code: "#FFFFFF", border: true },
+  { label: "노랑", value: "노랑", code: "#FACC15", border: false },
+  { label: "주황", value: "주황", code: "#FB923C", border: false },
+  { label: "분홍", value: "분홍", code: "#F472B6", border: false },
+  { label: "빨강", value: "빨강", code: "#EF4444", border: false },
+  { label: "갈색", value: "갈색", code: "#78350F", border: false },
+  { label: "연두", value: "연두", code: "#A3E635", border: false },
+  { label: "초록", value: "초록", code: "#16A34A", border: false },
+  { label: "청록", value: "청록", code: "#14B8A6", border: false },
+  { label: "파랑", value: "파랑", code: "#2563EB", border: false },
+  { label: "남색", value: "남색", code: "#1E3A8A", border: false },
+  { label: "보라", value: "보라", code: "#7C3AED", border: false },
+  { label: "회색", value: "회색", code: "#9CA3AF", border: false },
+  { label: "검정", value: "검정", code: "#1F2937", border: false },
+  { label: "투명", value: "투명", code: "transparent", border: true },
+];
+
+const CATEGORIES = [
+  { label: "전체", value: "" },
+  { label: "해열/진통/소염", value: "01140" },
+  { label: "항생제", value: "06100" },
+  { label: "감기약", value: "01140" },
+  { label: "소화제", value: "02330" },
+  { label: "혈압약", value: "02140" },
+  { label: "당뇨약", value: "03960" },
+  { label: "항히스타민", value: "01410" },
+];
+
+const PAGE_SIZE = 20; // 페이지당 개수
 
 const SearchSection: React.FC = () => {
-  const [keyword, setKeyword] = useState("");
+  const [filters, setFilters] = useState<SearchFilters>({
+    keyword: "",
+    shape: "",
+    color: "",
+    printFront: "",
+    printBack: "",
+    entpName: "",
+    classNo: "",
+  });
+
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // 결과 상태
   const [results, setResults] = useState<Pill[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [searched, setSearched] = useState(false);
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!keyword.trim()) return;
+  // 페이지네이션 상태
+  const [page, setPage] = useState(1);
+
+  // 모달 상태
+  const [selectedPill, setSelectedPill] = useState<Pill | null>(null);
+const [detailLoading, setDetailLoading] = useState(false);
+const [detailError, setDetailError] = useState<string | null>(null);
+
+async function handleCardClick(itemSeq: string) {
+  try {
+    setDetailLoading(true);
+    setDetailError(null);
+
+    // ✅ 상세 API 호출해서 e약은요까지 다 들어있는 pill 가져오기
+    const pillDetail = await getPillDetail(itemSeq);
+
+    console.log("detail pill:", pillDetail); // 디버그용
+    setSelectedPill(pillDetail);
+  } catch (err) {
+    console.error(err);
+    setDetailError("상세 정보를 불러오지 못했습니다.");
+  } finally {
+    setDetailLoading(false);
+  }
+}
+
+  // 실제 API 호출 함수 (페이지 번호를 인자로 받음)
+  const fetchPills = async (targetPage: number) => {
+    // 최소 하나는 입력되어야 검색
+    const hasCondition = Object.values(filters).some(
+      (val) => val && val.trim() !== ""
+    );
+    if (!hasCondition) {
+      setError("검색어 또는 필터 조건을 하나 이상 입력해주세요.");
+      return;
+    }
 
     setLoading(true);
     setError(null);
+    setSearched(true);
 
     try {
-      const res = await searchPills(keyword.trim(), 1);
+      // api.ts 의 searchPills 호출
+      const res = await searchPills(filters, targetPage, PAGE_SIZE);
       setResults(res.items);
       setTotal(res.total);
+      setPage(targetPage); // 현재 페이지 상태 업데이트
     } catch (err) {
       console.error(err);
-      setError("검색 중 오류가 발생했습니다.");
+      setError("검색 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <section className="search-section">
-      {/* 검색 폼 */}
-      <form onSubmit={handleSearch} className="search-form">
-        <input
-          type="text"
-          placeholder="약 이름 또는 식별 문자(앞/뒷면)를 입력하세요"
-          value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
-          className="search-input"
-        />
-        <button type="submit" className="search-button">
-          검색
+  // 검색 버튼 클릭 (항상 1페이지부터 시작)
+  const handleSearchSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    fetchPills(1);
+  };
+
+  // 페이지 변경 핸들러
+  const handlePageChange = (newPage: number) => {
+    // 범위 체크
+    if (newPage < 1 || newPage > Math.ceil(total / PAGE_SIZE)) return;
+    fetchPills(newPage);
+    // 페이지 이동 시 상단으로 스크롤 부드럽게 이동
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      keyword: "",
+      shape: "",
+      color: "",
+      printFront: "",
+      printBack: "",
+      entpName: "",
+      classNo: "",
+    });
+    setSearched(false);
+    setResults([]);
+    setTotal(0);
+    setPage(1);
+    setError(null);
+  };
+
+  // 페이지네이션 렌더링 로직 (1 ... 4 5 6 ... 10)
+  const renderPagination = () => {
+    const totalPages = Math.ceil(total / PAGE_SIZE);
+    if (totalPages <= 1) return null;
+
+    const pages = [];
+    const maxVisiblePages = 5; // 한 번에 보여줄 페이지 번호 개수
+
+    let startPage = Math.max(1, page - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    // 맨 처음으로
+    pages.push(
+      <button
+        key="first"
+        onClick={() => handlePageChange(1)}
+        disabled={page === 1}
+        className="p-2 rounded-lg hover:bg-sage/10 disabled:opacity-30 disabled:hover:bg-transparent transition-colors text-charcoal"
+      >
+        <ChevronsLeft size={20} />
+      </button>
+    );
+
+    // 이전
+    pages.push(
+      <button
+        key="prev"
+        onClick={() => handlePageChange(page - 1)}
+        disabled={page === 1}
+        className="p-2 rounded-lg hover:bg-sage/10 disabled:opacity-30 disabled:hover:bg-transparent transition-colors text-charcoal mr-2"
+      >
+        <ChevronLeft size={20} />
+      </button>
+    );
+
+    // 페이지 번호들
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(
+        <button
+          key={i}
+          onClick={() => handlePageChange(i)}
+          className={`w-10 h-10 rounded-lg text-sm font-bold transition-all ${
+            page === i
+              ? "bg-olive-primary text-white shadow-md transform scale-105"
+              : "text-charcoal hover:bg-sage/20 bg-white border border-sage/20"
+          }`}
+        >
+          {i}
         </button>
-      </form>
+      );
+    }
 
-      {/* 로딩 / 에러 */}
-      {loading && <p>검색 중...</p>}
-      {error && <p style={{ color: "red" }}>{error}</p>}
+    // 다음
+    pages.push(
+      <button
+        key="next"
+        onClick={() => handlePageChange(page + 1)}
+        disabled={page === totalPages}
+        className="p-2 rounded-lg hover:bg-sage/10 disabled:opacity-30 disabled:hover:bg-transparent transition-colors text-charcoal ml-2"
+      >
+        <ChevronRight size={20} />
+      </button>
+    );
 
-      {/* 총 개수 표시 */}
-      {!loading && total > 0 && (
-        <p className="search-summary">
-          총 <strong>{total}</strong>개의 결과
+    // 맨 끝으로
+    pages.push(
+      <button
+        key="last"
+        onClick={() => handlePageChange(totalPages)}
+        disabled={page === totalPages}
+        className="p-2 rounded-lg hover:bg-sage/10 disabled:opacity-30 disabled:hover:bg-transparent transition-colors text-charcoal"
+      >
+        <ChevronsRight size={20} />
+      </button>
+    );
+
+    return (
+      <div className="flex justify-center items-center gap-1 mt-12 mb-8 animate-fade-in-up">
+        {pages}
+      </div>
+    );
+  };
+
+  return (
+    <section className="w-full max-w-5xl mx-auto px-4 py-8 md:py-12">
+      {/* 헤더 */}
+      <div className="text-center mb-8 animate-fade-in-up">
+        <h2 className="text-3xl md:text-4xl font-bold text-charcoal mb-3">
+          스마트 약 검색
+        </h2>
+        <p className="text-sage text-lg">
+          약의 이름, 모양, 색상, 식별문자로 정확하게 찾아보세요.
         </p>
+      </div>
+
+      {/* 검색 박스 전체 */}
+      <div className="bg-white rounded-3xl shadow-lg border border-sage/20 overflow-hidden mb-12 animate-fade-in-up">
+        {/* 1. 메인 검색바 */}
+        <div className="p-6 pb-2">
+          <form onSubmit={handleSearchSubmit} className="relative group">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+              <Search className="h-6 w-6 text-sage group-focus-within:text-olive-primary transition-colors" />
+            </div>
+            <input
+              type="text"
+              placeholder="약 이름 (예: 타이레놀, 게보린)"
+              value={filters.keyword}
+              onChange={(e) => handleInputChange("keyword", e.target.value)}
+              className="w-full pl-12 pr-4 py-4 bg-cream border-2 border-transparent focus:bg-white focus:border-olive-primary rounded-xl text-lg placeholder:text-gray-400 focus:outline-none transition-all"
+            />
+          </form>
+        </div>
+
+        {/* 2. 상세 검색 토글 */}
+        <div className="px-6 flex justify-between items-center">
+          <button
+            type="button"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="flex items-center gap-2 text-sm font-medium text-sage hover:text-olive-primary transition-colors py-2"
+          >
+            <Filter size={16} />
+            <span>상세 필터 {showAdvanced ? "접기" : "펼치기"}</span>
+            {showAdvanced ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          </button>
+
+          {(filters.shape ||
+            filters.color ||
+            filters.entpName ||
+            filters.printFront ||
+            filters.classNo) && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="text-sm text-coral-dark hover:text-coral-primary underline decoration-1 underline-offset-2"
+            >
+              초기화
+            </button>
+          )}
+        </div>
+
+        {/* 3. 상세 필터 영역 (아코디언) */}
+        <div
+          className={`overflow-hidden transition-all duration-500 ease-in-out ${
+            showAdvanced ? "max-h-[1000px] opacity-100" : "max-h-0 opacity-0"
+          }`}
+        >
+          <div className="p-6 pt-2 space-y-6 border-t border-sage/10 mt-2">
+            {/* 모양 선택 */}
+            <div>
+              <label className="block text-sm font-bold text-charcoal mb-3">
+                모양
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {SHAPES.map((shape) => (
+                  <button
+                    key={shape.value}
+                    type="button"
+                    onClick={() =>
+                      handleInputChange(
+                        "shape",
+                        filters.shape === shape.value ? "" : shape.value
+                      )
+                    }
+                    className={`px-3 py-1.5 rounded-lg text-sm transition-all border ${
+                      filters.shape === shape.value
+                        ? "bg-olive-primary text-white border-olive-primary shadow-md"
+                        : "bg-white text-charcoal border-sage/30 hover:border-olive-primary hover:text-olive-primary"
+                    }`}
+                  >
+                    {shape.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 색상 선택 */}
+            <div>
+              <label className="block text-sm font-bold text-charcoal mb-3">
+                색상
+              </label>
+              <div className="flex flex-wrap gap-3">
+                {COLORS.map((c) => (
+                  <button
+                    key={c.value}
+                    type="button"
+                    onClick={() =>
+                      handleInputChange(
+                        "color",
+                        filters.color === c.value ? "" : c.value
+                      )
+                    }
+                    className={`relative w-8 h-8 rounded-full shadow-sm transition-transform hover:scale-110 focus:outline-none ${
+                      c.border ? "border border-gray-200" : ""
+                    }`}
+                    style={{ backgroundColor: c.code }}
+                    title={c.label}
+                  >
+                    {filters.color === c.value && (
+                      <>
+                        <span className="absolute inset-0 flex items-center justify-center">
+                          <Check
+                            size={16}
+                            className={
+                              c.label === "하양" ||
+                              c.label === "투명" ||
+                              c.label === "노랑"
+                                ? "text-charcoal"
+                                : "text-white"
+                            }
+                          />
+                        </span>
+                        <span className="absolute -inset-1 rounded-full border-2 border-olive-primary" />
+                      </>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 식별 문자 & 제약사 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-bold text-charcoal mb-2">
+                  식별 문자
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="앞면"
+                    value={filters.printFront}
+                    onChange={(e) =>
+                      handleInputChange("printFront", e.target.value)
+                    }
+                    className="w-full px-3 py-2 bg-cream border border-sage/30 rounded-lg focus:outline-none focus:border-olive-primary text-sm"
+                  />
+                  <input
+                    type="text"
+                    placeholder="뒷면"
+                    value={filters.printBack}
+                    onChange={(e) =>
+                      handleInputChange("printBack", e.target.value)
+                    }
+                    className="w-full px-3 py-2 bg-cream border border-sage/30 rounded-lg focus:outline-none focus:border-olive-primary text-sm"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-charcoal mb-2">
+                  제약회사
+                </label>
+                <input
+                  type="text"
+                  placeholder="예: 종근당, 한미약품"
+                  value={filters.entpName}
+                  onChange={(e) =>
+                    handleInputChange("entpName", e.target.value)
+                  }
+                  className="w-full px-3 py-2 bg-cream border border-sage/30 rounded-lg focus:outline-none focus:border-olive-primary text-sm"
+                />
+              </div>
+            </div>
+
+            {/* 효능 분류 */}
+            <div>
+              <label className="block text-sm font-bold text-charcoal mb-3">
+                효능 분류
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {CATEGORIES.map((cat) => (
+                  <button
+                    key={cat.label}
+                    type="button"
+                    onClick={() =>
+                      handleInputChange(
+                        "classNo",
+                        filters.classNo === cat.value && cat.value !== ""
+                          ? ""
+                          : cat.value
+                      )
+                    }
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                      filters.classNo === cat.value
+                        ? "bg-sage text-white"
+                        : "bg-cream text-charcoal/70 hover:bg-sage/20"
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 검색 버튼 (하단) */}
+        <div className="p-4 bg-cream/50 border-t border-sage/10 flex justify-center">
+          <button
+            onClick={() => handleSearchSubmit()}
+            disabled={loading}
+            className="w-full md:w-auto md:px-12 py-3 bg-olive-primary hover:bg-olive-dark text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all transform active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <>검색 중...</>
+            ) : (
+              <>
+                <Search size={20} />
+                검색하기
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* 에러 메시지 */}
+      {error && (
+        <div className="max-w-2xl mx-auto mb-8 p-4 bg-red-50 text-red-600 rounded-xl flex items-center gap-3 animate-fade-in-up border border-red-100">
+          <AlertCircle size={20} />
+          <span>{error}</span>
+        </div>
       )}
 
-      {/* 결과 리스트 */}
-      <div className="pill-results">
-        {results.map((pill) => (
-          <div key={pill.item_seq} className="pill-card">
-            <div className="pill-image-wrapper">
+      {/* 결과 요약 */}
+      {!loading && searched && !error && (
+        <div className="mb-6 flex items-center justify-between animate-fade-in-up">
+          <p className="text-charcoal font-medium">
+            검색 결과{" "}
+            <span className="text-olive-primary font-bold">{total}</span>건
+            <span className="text-sage text-sm ml-2 font-normal">
+              (총 {Math.ceil(total / PAGE_SIZE)} 페이지 중 {page} 페이지)
+            </span>
+          </p>
+        </div>
+      )}
+
+      {/* 결과 카드 리스트 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {results.map((pill, index) => (
+          <div
+            key={pill.item_seq}
+            onClick={() => setSelectedPill(pill)}
+            className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-sage/10 flex flex-col animate-fade-in-up cursor-pointer relative"
+            style={{ animationDelay: `${index * 0.05}s` }}
+          >
+            {/* 호버 오버레이 */}
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors z-10 flex items-center justify-center opacity-0 group-hover:opacity-100">
+              <span className="bg-white/90 text-charcoal px-4 py-2 rounded-full text-sm font-bold shadow-sm flex items-center gap-2 backdrop-blur-sm transform translate-y-4 group-hover:translate-y-0 transition-all duration-300">
+                <MousePointerClick size={16} /> 자세히 보기
+              </span>
+            </div>
+
+            {/* 이미지 */}
+            <div className="relative aspect-[4/3] bg-cream overflow-hidden">
               {pill.item_image ? (
                 <img
                   src={pill.item_image}
                   alt={pill.item_name}
-                  className="pill-image"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />
               ) : (
-                <div className="pill-image-placeholder">No Image</div>
+                <div className="w-full h-full flex flex-col items-center justify-center text-sage/50 bg-warmWhite">
+                  <PillIcon size={48} strokeWidth={1.5} />
+                  <span className="text-sm mt-2 font-medium">이미지 없음</span>
+                </div>
               )}
             </div>
 
-            <div className="pill-info">
-              <h3 className="pill-name">{pill.item_name}</h3>
-              <p className="pill-entp">{pill.entp_name}</p>
-              <p className="pill-meta">
-                {pill.drug_shape && <span>{pill.drug_shape}</span>}
-                {pill.color_class1 && (
-                  <span>
-                    {" "}
-                    · {pill.color_class1}
-                    {pill.color_class2 ? ` / ${pill.color_class2}` : ""}
+            {/* 정보 */}
+            <div className="p-5 flex flex-col flex-1">
+              <div className="mb-auto">
+                <div className="flex justify-between items-start mb-2">
+                  <span className="text-xs font-bold text-olive-dark bg-olive-primary/10 px-2 py-1 rounded">
+                    {pill.entp_name}
                   </span>
-                )}
-              </p>
-              {(pill.print_front || pill.print_back) && (
-                <p className="pill-print">
-                  앞: {pill.print_front || "-"} / 뒤: {pill.print_back || "-"}
-                </p>
-              )}
+                  {pill.drug_shape && (
+                    <span className="text-xs text-sage border border-sage/30 px-1.5 py-0.5 rounded-full">
+                      {pill.drug_shape}
+                    </span>
+                  )}
+                </div>
+                <h3 className="text-lg font-bold text-charcoal leading-snug mb-3 line-clamp-2 group-hover:text-olive-primary transition-colors">
+                  {pill.item_name}
+                </h3>
+
+                <div className="space-y-1.5 mb-4 text-sm text-charcoal/80 bg-cream/50 p-3 rounded-lg">
+                  {/* 색상 */}
+                  {pill.color_class1 && (
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-3 h-3 rounded-full border border-gray-200"
+                        style={{
+                          backgroundColor: getColorCode(pill.color_class1),
+                        }}
+                      ></div>
+                      <span>
+                        {pill.color_class1}
+                        {pill.color_class2 ? ` / ${pill.color_class2}` : ""}
+                      </span>
+                    </div>
+                  )}
+                  {/* 식별문자 */}
+                  {(pill.print_front || pill.print_back) && (
+                    <div className="flex items-start gap-2">
+                      <span className="shrink-0 text-sage text-xs uppercase tracking-wider mt-0.5 font-bold">
+                        식별
+                      </span>
+                      <span className="font-mono text-charcoal/90 text-xs">
+                        {pill.print_front || "-"} | {pill.print_back || "-"}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         ))}
-
-        {!loading && !error && results.length === 0 && keyword && (
-          <p>검색 결과가 없습니다.</p>
-        )}
       </div>
+
+      {/* 검색 결과 없음 */}
+      {!loading && searched && results.length === 0 && !error && (
+        <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-sage/30 animate-fade-in-up">
+          <div className="bg-cream w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Search className="text-sage" size={32} />
+          </div>
+          <p className="text-lg text-charcoal font-medium">
+            조건에 맞는 약을 찾을 수 없습니다.
+          </p>
+          <p className="text-sage mt-1">
+            검색 조건을 조금 더 넓게 설정해보세요.
+          </p>
+          <button
+            onClick={clearFilters}
+            className="mt-6 px-6 py-2 bg-sage text-white rounded-full hover:bg-olive-primary transition-colors text-sm font-medium"
+          >
+            필터 초기화
+          </button>
+        </div>
+      )}
+
+      {/* ✨ 페이지네이션 UI (결과가 있을 때만 표시) */}
+      {!loading && total > 0 && renderPagination()}
+
+      {/* 상세 모달 */}
+      {selectedPill && (
+        <PillDetailModal
+          pill={selectedPill}
+          onClose={() => setSelectedPill(null)}
+        />
+      )}
     </section>
   );
+};
+
+// 색상 이름 → 칩 배경색 매핑
+const getColorCode = (colorName: string): string => {
+  const found = COLORS.find((c) => colorName.includes(c.value));
+  return found ? found.code : "#eee";
 };
 
 export default SearchSection;

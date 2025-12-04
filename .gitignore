@@ -1,0 +1,70 @@
+# -----------------------------
+# Node / Vite
+# -----------------------------
+node_modules/
+dist/
+build/
+.vite/
+*.local
+
+# -----------------------------
+# Environment Keys
+# -----------------------------
+.env
+.env.*
+*.pem
+*.key
+
+# -----------------------------
+# Python / FastAPI
+# -----------------------------
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+.venv/
+venv/
+.env/
+.DS_Store
+
+# Uvicorn / Logs
+*.log
+
+# -----------------------------
+# Flutter / Dart
+# -----------------------------
+**/build/
+.dart_tool/
+.packages
+.pub-cache/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# -----------------------------
+# VS Code
+# -----------------------------
+.vscode/
+.history/
+
+# -----------------------------
+# OS (Mac)
+# -----------------------------
+.DS_Store
+
+# -----------------------------
+# Image datasets (너의 프로젝트에 많음)
+# -----------------------------
+/datasets/
+/data/
+/images/
+/uploads/
+*.jpg
+*.png
+
+# -----------------------------
+# MySQL dump or big files
+# -----------------------------
+*.sql
+*.dump

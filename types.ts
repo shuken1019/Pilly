@@ -27,3 +27,22 @@ export enum ViewState {
   SIGNUP = 'SIGNUP',
   SEARCH = 'SEARCH',
 }
+export interface Pill {
+  id: number;
+  item_seq: string;
+  item_name: string;
+  entp_name: string;
+  drug_shape: string;
+  color_class1: string | null;
+  color_class2: string | null;
+  item_image: string | null;
+  // ...
+
+  efcy_qesitm?: string | null;
+  use_method_qesitm?: string | null;
+  atpn_warn_qesitm?: string | null;
+  atpn_qesitm?: string | null;
+  intrc_qesitm?: string | null;
+  se_qesitm?: string | null;
+  deposit_method_qesitm?: string | null;
+}
