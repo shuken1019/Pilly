@@ -1,5 +1,5 @@
 // src/components/SearchSection.tsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react"; // ✅ useEffect 추가됨
 import {
   Search,
   Pill as PillIcon,
@@ -14,7 +14,12 @@ import {
   ChevronsLeft,
   ChevronsRight,
 } from "lucide-react";
-import { searchPills, Pill, SearchFilters,getPillDetail } from "../services/api";
+import {
+  searchPills,
+  Pill,
+  SearchFilters,
+  getPillDetail,
+} from "../services/api";
 import PillDetailModal from "./PillDetailModal";
 
 // --- 상수 데이터 정의 ---
@@ -62,7 +67,17 @@ const CATEGORIES = [
 
 const PAGE_SIZE = 20; // 페이지당 개수
 
-const SearchSection: React.FC = () => {
+// ✅ Props 인터페이스 정의
+interface SearchSectionProps {
+  externalFilters?: SearchFilters | null;
+  onInputClick?: () => void; // 클릭 시 실행할 함수 (선택적)
+}
+
+// ✅ 컴포넌트 시작 (중복 선언 제거됨)
+const SearchSection: React.FC<SearchSectionProps> = ({
+  externalFilters,
+  onInputClick,
+}) => {
   const [filters, setFilters] = useState<SearchFilters>({
     keyword: "",
     shape: "",
@@ -72,6 +87,14 @@ const SearchSection: React.FC = () => {
     entpName: "",
     classNo: "",
   });
+  
+  const handleMainInputClick = () => {
+    if (onInputClick) {
+      onInputClick();
+    }
+  };
+
+
 
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -87,48 +110,56 @@ const SearchSection: React.FC = () => {
 
   // 모달 상태
   const [selectedPill, setSelectedPill] = useState<Pill | null>(null);
-const [detailLoading, setDetailLoading] = useState(false);
-const [detailError, setDetailError] = useState<string | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
 
-async function handleCardClick(itemSeq: string) {
-  try {
-    setDetailLoading(true);
-    setDetailError(null);
+  // ✅ 필터 값 업데이트 공통 함수
+  const handleInputChange = (key: keyof SearchFilters, value: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  };
 
-    // ✅ 상세 API 호출해서 e약은요까지 다 들어있는 pill 가져오기
-    const pillDetail = await getPillDetail(itemSeq);
-
-    console.log("detail pill:", pillDetail); // 디버그용
-    setSelectedPill(pillDetail);
-  } catch (err) {
-    console.error(err);
-    setDetailError("상세 정보를 불러오지 못했습니다.");
-  } finally {
-    setDetailLoading(false);
+  // ✅ 카드 클릭 시 상세 API 호출
+  async function handleCardClick(itemSeq: string) {
+    try {
+      setDetailLoading(true);
+      setDetailError(null);
+      const pillDetail = await getPillDetail(itemSeq);
+      setSelectedPill(pillDetail);
+    } catch (err) {
+      console.error(err);
+      setDetailError("상세 정보를 불러오지 못했습니다.");
+    } finally {
+      setDetailLoading(false);
+    }
   }
-}
 
-  // 실제 API 호출 함수 (페이지 번호를 인자로 받음)
-  const fetchPills = async (targetPage: number) => {
-    // 최소 하나는 입력되어야 검색
-    const hasCondition = Object.values(filters).some(
+  // ✅ 실제 API 호출 함수 (페이지 번호와 현재 필터를 인자로 받음)
+  const fetchPills = async (targetPage: number, currentFilters = filters) => {
+    const hasCondition = Object.values(currentFilters).some(
       (val) => val && val.trim() !== ""
     );
-    if (!hasCondition) {
-      setError("검색어 또는 필터 조건을 하나 이상 입력해주세요.");
-      return;
-    }
+    if (!hasCondition) return;
 
     setLoading(true);
     setError(null);
     setSearched(true);
 
     try {
-      // api.ts 의 searchPills 호출
-      const res = await searchPills(filters, targetPage, PAGE_SIZE);
+      const res = await searchPills(currentFilters, targetPage, PAGE_SIZE);
       setResults(res.items);
       setTotal(res.total);
-      setPage(targetPage); // 현재 페이지 상태 업데이트
+      setPage(targetPage);
+
+      // AI 검색 등으로 외부에서 호출된 경우, 결과 영역으로 스크롤 이동
+      if (currentFilters !== filters) {
+        setTimeout(() => {
+          const section = document.getElementById("search-results-area");
+          if (section) section.scrollIntoView({ behavior: "smooth" });
+        }, 100);
+      }
     } catch (err) {
       console.error(err);
       setError("검색 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
@@ -137,18 +168,40 @@ async function handleCardClick(itemSeq: string) {
     }
   };
 
+  // ✅ 외부 파라미터로 즉시 검색하는 헬퍼 함수
+  const searchWithExternalParams = (params: SearchFilters) => {
+    const newFilters = { ...filters, ...params };
+    // 즉시 검색 실행 (1페이지)
+    fetchPills(1, newFilters);
+  };
+
+  // ✅ [중요] 외부(AI)에서 필터값이 들어오면 필터 상태 업데이트 및 검색 실행
+  useEffect(() => {
+    if (externalFilters) {
+      setFilters((prev) => ({
+        ...prev,
+        ...externalFilters,
+      }));
+      // 상세 필터 열기
+      if (externalFilters.color || externalFilters.printFront) {
+        setShowAdvanced(true);
+      }
+      searchWithExternalParams(externalFilters);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalFilters]);
+
   // 검색 버튼 클릭 (항상 1페이지부터 시작)
   const handleSearchSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    fetchPills(1);
+    fetchPills(1, filters); // 현재 state 사용
   };
 
   // 페이지 변경 핸들러
   const handlePageChange = (newPage: number) => {
-    // 범위 체크
-    if (newPage < 1 || newPage > Math.ceil(total / PAGE_SIZE)) return;
-    fetchPills(newPage);
-    // 페이지 이동 시 상단으로 스크롤 부드럽게 이동
+    const totalPages = Math.ceil(total / PAGE_SIZE);
+    if (newPage < 1 || newPage > totalPages) return;
+    fetchPills(newPage, filters);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -169,13 +222,13 @@ async function handleCardClick(itemSeq: string) {
     setError(null);
   };
 
-  // 페이지네이션 렌더링 로직 (1 ... 4 5 6 ... 10)
+  // 페이지네이션 렌더링 로직
   const renderPagination = () => {
     const totalPages = Math.ceil(total / PAGE_SIZE);
     if (totalPages <= 1) return null;
 
     const pages = [];
-    const maxVisiblePages = 5; // 한 번에 보여줄 페이지 번호 개수
+    const maxVisiblePages = 5;
 
     let startPage = Math.max(1, page - Math.floor(maxVisiblePages / 2));
     let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
@@ -184,7 +237,7 @@ async function handleCardClick(itemSeq: string) {
       startPage = Math.max(1, endPage - maxVisiblePages + 1);
     }
 
-    // 맨 처음으로
+    // 맨 처음
     pages.push(
       <button
         key="first"
@@ -208,7 +261,7 @@ async function handleCardClick(itemSeq: string) {
       </button>
     );
 
-    // 페이지 번호들
+    // 번호들
     for (let i = startPage; i <= endPage; i++) {
       pages.push(
         <button
@@ -237,7 +290,7 @@ async function handleCardClick(itemSeq: string) {
       </button>
     );
 
-    // 맨 끝으로
+    // 맨 끝
     pages.push(
       <button
         key="last"
@@ -257,7 +310,10 @@ async function handleCardClick(itemSeq: string) {
   };
 
   return (
-    <section className="w-full max-w-5xl mx-auto px-4 py-8 md:py-12">
+    <section
+      id="search-section"
+      className="w-full max-w-5xl mx-auto px-4 py-8 md:py-12"
+    >
       {/* 헤더 */}
       <div className="text-center mb-8 animate-fade-in-up">
         <h2 className="text-3xl md:text-4xl font-bold text-charcoal mb-3">
@@ -280,9 +336,11 @@ async function handleCardClick(itemSeq: string) {
               type="text"
               placeholder="약 이름 (예: 타이레놀, 게보린)"
               value={filters.keyword}
-              onChange={(e) => handleInputChange("keyword", e.target.value)}
-              className="w-full pl-12 pr-4 py-4 bg-cream border-2 border-transparent focus:bg-white focus:border-olive-primary rounded-xl text-lg placeholder:text-gray-400 focus:outline-none transition-all"
-            />
+              // ✅ [수정] 클릭 시 onInputClick 함수 실행 (메인 화면에서만 작동)
+            onClick={handleMainInputClick}
+            onChange={(e) => handleInputChange("keyword", e.target.value)}
+            className="w-full pl-12 pr-4 py-4 bg-cream border-2 border-transparent focus:bg-white focus:border-olive-primary rounded-xl text-lg placeholder:text-gray-400 focus:outline-none transition-all"
+/>
           </form>
         </div>
 
@@ -486,7 +544,7 @@ async function handleCardClick(itemSeq: string) {
         </div>
       </div>
 
-      {/* 에러 메시지 */}
+      {/* 에러 메시지 (검색용) */}
       {error && (
         <div className="max-w-2xl mx-auto mb-8 p-4 bg-red-50 text-red-600 rounded-xl flex items-center gap-3 animate-fade-in-up border border-red-100">
           <AlertCircle size={20} />
@@ -494,9 +552,20 @@ async function handleCardClick(itemSeq: string) {
         </div>
       )}
 
+      {/* 상세 에러 (있으면) */}
+      {detailError && (
+        <div className="max-w-2xl mx-auto mb-4 p-3 bg-yellow-50 text-yellow-700 rounded-xl flex items-center gap-2 text-sm border border-yellow-100">
+          <AlertCircle size={18} />
+          <span>{detailError}</span>
+        </div>
+      )}
+
       {/* 결과 요약 */}
       {!loading && searched && !error && (
-        <div className="mb-6 flex items-center justify-between animate-fade-in-up">
+        <div
+          id="search-results-area"
+          className="mb-6 flex items-center justify-between animate-fade-in-up"
+        >
           <p className="text-charcoal font-medium">
             검색 결과{" "}
             <span className="text-olive-primary font-bold">{total}</span>건
@@ -512,7 +581,7 @@ async function handleCardClick(itemSeq: string) {
         {results.map((pill, index) => (
           <div
             key={pill.item_seq}
-            onClick={() => setSelectedPill(pill)}
+            onClick={() => handleCardClick(pill.item_seq)}
             className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-sage/10 flex flex-col animate-fade-in-up cursor-pointer relative"
             style={{ animationDelay: `${index * 0.05}s` }}
           >
@@ -611,14 +680,17 @@ async function handleCardClick(itemSeq: string) {
         </div>
       )}
 
-      {/* ✨ 페이지네이션 UI (결과가 있을 때만 표시) */}
+      {/* 페이지네이션 */}
       {!loading && total > 0 && renderPagination()}
 
       {/* 상세 모달 */}
       {selectedPill && (
         <PillDetailModal
           pill={selectedPill}
-          onClose={() => setSelectedPill(null)}
+          onClose={() => {
+            setSelectedPill(null);
+            setDetailError(null);
+          }}
         />
       )}
     </section>

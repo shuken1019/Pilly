@@ -10,6 +10,9 @@ export interface Pill {
   color_class2: string | null;
   item_image: string | null;
 
+  print_front?: string | null;
+  print_back?: string | null;
+
   // 🔽 e약은요 상세 필드 (옵셔널이면 ? 붙이기)
   efcy_qesitm?: string | null; // 어디에 좋은 약인가요?
   use_method_qesitm?: string | null; // 어떻게 먹어야 하나요?

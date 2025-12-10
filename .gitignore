@@ -14,7 +14,7 @@ build/
 .env.*
 *.pem
 *.key
-
+service-account-file.json
 # -----------------------------
 # Python / FastAPI
 # -----------------------------

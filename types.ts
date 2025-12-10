@@ -22,10 +22,14 @@ export interface SearchResult {
 }
 
 export enum ViewState {
-  HOME = 'HOME',
-  LOGIN = 'LOGIN',
-  SIGNUP = 'SIGNUP',
-  SEARCH = 'SEARCH',
+  HOME = "HOME",
+  LOGIN = "LOGIN",
+  SIGNUP = "SIGNUP",
+  SEARCH = "SEARCH",
+  AI_SEARCH = "AI_SEARCH", // ✅ [추가] AI 사진 인식 전용 화면
+  COMMUNITY = "COMMUNITY",
+  COMMUNITY_WRITE = "COMMUNITY_WRITE",
+  COMMUNITY_DETAIL = "COMMUNITY_DETAIL",
 }
 export interface Pill {
   id: number;
@@ -36,6 +40,7 @@ export interface Pill {
   color_class1: string | null;
   color_class2: string | null;
   item_image: string | null;
+  name?: string;
   // ...
 
   efcy_qesitm?: string | null;
