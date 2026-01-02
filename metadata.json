@@ -1,0 +1,5 @@
+{
+  "name": "pilly",
+  "description": "Identify pills instantly using AI, manage medication schedules, and access drug information safely.",
+  "requestFramePermissions": ["camera"]
+}

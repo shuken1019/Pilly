@@ -1,0 +1,76 @@
+# ==========================
+# 1. 시스템 및 IDE (공통)
+# ==========================
+.DS_Store
+.vscode/
+.idea/
+*.log
+
+# ==========================
+# 2. Frontend (React/Node)
+# ==========================
+node_modules/
+dist/
+build/
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ==========================
+# 3. Backend (Python/FastAPI)
+# ==========================
+# 가상환경 (이름이 다양할 수 있어서 다 넣음)
+venv/
+.venv/
+env/
+.env/
+
+# 파이썬 컴파일 파일
+__pycache__/
+*.py[cod]
+*$py.class
+
+# ==========================
+# 4. 보안 / 환경변수 (가장 중요!)
+# ==========================
+.env
+backend/.env
+*.pem
+*.key
+secrets.json
+
+# ==========================
+# 5. AI / 데이터 / 업로드 파일
+# ==========================
+# 사용자 업로드 이미지 폴더 (Git에 올리면 안 됨)
+backend/uploads/
+uploads/
+
+# AI 모델 파일 (용량이 커서 제외)
+*.pt
+*.pth
+*.onnx
+backend/models/*.pt
+
+# 데이터셋 (용량이 커서 제외)
+datasets/
+backend/datasets/
+
+# YOLO 학습 결과 로그
+runs/
+backend/runs/
+
+# ==========================
+# 6. 기타
+# ==========================
+# SQLite DB (사용한다면)
+*.sqlite3
+*.dbbackend/service-account-file.json
+backend/service-account-file.json
+backend/.env
+.env
