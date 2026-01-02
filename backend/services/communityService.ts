@@ -1,4 +1,3 @@
-// src/services/communityService.ts
 import axios from "axios";
 
 const API_URL = "http://127.0.0.1:8000/api/community";
@@ -9,11 +8,13 @@ export interface CommunityPost {
   title: string;
   content: string;
   username: string;
+  nickname: string;
+  profile_image: string;
   created_at: string;
   like_count: number;
-  is_liked?:boolean;
+  is_liked?: boolean;
   comment_count: number;
-  image_url?: string; // ✅ [추가] 이미지 URL 필드
+  image_url?: string;
   pills?: {
     item_seq: string;
     item_name: string;
@@ -23,55 +24,54 @@ export interface CommunityPost {
 
 export interface CommunityComment {
   id: number;
+  post_id: number; // 추가
   user_id: number;
   username: string;
+  nickname: string;
+  profile_image: string;
   content: string;
+  parent_id: number | null; // ✅ 대댓글 처리를 위해 추가
   created_at: string;
   like_count: number;
 }
 
-/* 🟢 이미지 업로드 (새로 추가됨) */
+/* 🟢 이미지 업로드 */
 export async function uploadImage(file: File) {
   const formData = new FormData();
   formData.append("file", file);
 
-  // 백엔드의 /api/community/upload 경로로 요청
   const res = await axios.post(`${API_URL}/upload`, formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
-  return res.data.url; // 서버가 반환한 이미지 URL
+  return res.data.url;
 }
 
-/* 🟢 게시글 목록 (수정됨: 토큰 전송) */
+/* 🟢 게시글 목록 */
 export async function getPosts(category: string): Promise<CommunityPost[]> {
-  const token = localStorage.getItem("token"); // 토큰 가져오기
-  const headers = token ? { Authorization: `Bearer ${token}` } : {}; // 토큰 있으면 헤더에 추가
+  const token = localStorage.getItem("token");
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
   const res = await axios.get(`${API_URL}/${category}`, { headers });
   return res.data;
 }
 
-/* 🟢 게시글 상세 (수정됨: 토큰 전송 추가) */
+/* 🟢 게시글 상세 */
 export async function getPostDetail(postId: number): Promise<CommunityPost> {
-  // 1. 로컬 스토리지에서 토큰 꺼내기
   const token = localStorage.getItem("token");
-  
-  // 2. 토큰이 있으면 헤더에 담기
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-  // 3. 헤더와 함께 요청 보내기
   const res = await axios.get(`${API_URL}/post/${postId}`, { headers });
-  
   return res.data;
 }
-/* 🟢 게시글 작성 (image_url 추가됨) */
+
+/* 🟢 게시글 작성 */
 export async function createPost(
   token: string,
   data: {
     category: string;
     title: string;
     content: string;
-    image_url?: string; // ✅ 추가됨
+    image_url?: string;
     pill_ids: number[];
   }
 ) {
@@ -81,7 +81,7 @@ export async function createPost(
   return res.data;
 }
 
-/* 🟢 게시글 수정 (image_url 추가됨) */
+/* 🟢 게시글 수정 */
 export async function updatePost(
   token: string,
   postId: number,
@@ -89,7 +89,7 @@ export async function updatePost(
     category: string;
     title: string;
     content: string;
-    image_url?: string; // ✅ 추가됨
+    image_url?: string;
     pill_ids: number[];
   }
 ) {
@@ -111,7 +111,7 @@ export async function deletePost(token: string, postId: number) {
 export async function togglePostLike(
   token: string,
   postId: number
-): Promise<{ like_count: number; is_liked:boolean }> {
+): Promise<{ like_count: number; is_liked: boolean }> {
   const res = await axios.post(
     `${API_URL}/${postId}/like`,
     {},
@@ -128,21 +128,26 @@ export async function getComments(postId: number): Promise<CommunityComment[]> {
   return res.data;
 }
 
-/* 🟢 댓글 작성 */
-export async function createComment(
+/* 🟢 댓글 및 대댓글 작성 (수정됨) */
+export const createComment = async (
   token: string,
   postId: number,
-  content: string
-) {
+  content: string,
+  parentId: number | null = null // ✅ 4번째 인자로 부모 ID를 받습니다.
+) => {
+  // 🚨 'api' 대신 'axios'를 사용하여 요청 보냄
   const res = await axios.post(
     `${API_URL}/${postId}/comments`,
-    { content },
+    {
+      content,
+      parent_id: parentId, // ✅ 백엔드로 전달
+    },
     {
       headers: { Authorization: `Bearer ${token}` },
     }
   );
   return res.data;
-}
+};
 
 /* 🟢 댓글 삭제 */
 export async function deleteComment(token: string, commentId: number) {

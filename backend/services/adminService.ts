@@ -72,9 +72,16 @@ export async function togglePostHide(postId: number) {
 // src/backend/services/adminService.ts 맨 아래에 추가
 
 // 7. [추가] 회원 권한 수정 요청
-export async function updateUserRole(userId: number, newRole: string) {
+export async function updateUserRole(userId: number, newRole: "ADMIN" | "USER") {
   // role 정보를 body에 담아서 보냄
-  await axios.put(`${API_URL}/users/${userId}`, { role: newRole }, { 
+  await axios.put(`${API_URL}/users/${userId}/role`, { role: newRole }, { 
+    headers: getAuthHeaders() 
+  });
+}
+// 7. [추가] 회원 권한 수정 요청
+export async function changeUserRole(userId: number, newRole: "ADMIN" | "USER") {
+  // role 정보를 body에 담아서 보냄
+  await axios.put(`${API_URL}/users/${userId}/role`, { role: newRole }, { 
     headers: getAuthHeaders() 
   });
 }
@@ -92,3 +99,4 @@ export interface RegisterPayload {
   
   gender?: string; // (기존에 있었다면 유지, 없으면 삭제해도 무방)
 }
+

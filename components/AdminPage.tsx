@@ -12,19 +12,34 @@ import {
   deletePostAdmin,
   togglePostHide,
   updateUser,
+  changeUserRole // ✅ import 확인
 } from "../backend/services/adminService";
+
+// ✅ [수정 1] AdminUser 인터페이스 정의 추가
+interface AdminUser {
+  id: number;
+  username: string;
+  name: string;
+  role: string;
+  created_at: string;
+  is_banned: boolean;
+  admin_memo?: string;
+}
 
 const AdminPage: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<"dashboard" | "users" | "posts">("dashboard");
   const [stats, setStats] = useState({ user_count: 0, post_count: 0 });
-  const [users, setUsers] = useState<any[]>([]);
+  
+  // state 타입 명시 (any 대신 AdminUser[] 권장하지만 편의상 any[] 유지 가능)
+  const [users, setUsers] = useState<AdminUser[]>([]); 
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
   const [searchKeyword, setSearchKeyword] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  // 데이터 불러오는 함수 이름: fetchData
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -70,25 +85,19 @@ const AdminPage: React.FC = () => {
   };
 
   const handleUpdateUser = async (user: any) => {
-    const newRole = window.prompt("변경할 권한 (ADMIN 또는 USER)", user.role);
-    if (!newRole) return;
-
+    // 권한 변경은 별도 버튼으로 분리했으므로 여기선 제외해도 되지만, 유지한다면 아래와 같이
     const newMemo = window.prompt("관리자 메모 (없으면 비워두세요)", user.admin_memo || "");
     if (newMemo === null) return;
 
-    if (newRole === 'ADMIN' || newRole === 'USER') {
-      try {
-        await updateUser(user.id, {
-          role: newRole,
-          is_banned: user.is_banned,
-          admin_memo: newMemo,
-        });
-        alert("회원 정보가 수정되었습니다.");
-        fetchData();
-      } catch (e) { alert("수정 실패"); }
-    } else {
-      alert("ADMIN 또는 USER만 입력 가능합니다.");
-    }
+    try {
+      await updateUser(user.id, {
+        role: user.role, // 기존 권한 유지
+        is_banned: user.is_banned,
+        admin_memo: newMemo,
+      });
+      alert("메모가 수정되었습니다.");
+      fetchData();
+    } catch (e) { alert("수정 실패"); }
   };
 
   const handleToggleBan = async (user: any) => {
@@ -103,6 +112,25 @@ const AdminPage: React.FC = () => {
         alert(`회원이 ${action} 처리되었습니다.`);
         fetchData();
       } catch(e) { alert("상태 변경 실패"); }
+    }
+  };
+
+  // ✅ [수정 2] 권한 변경 핸들러
+  const handleToggleRole = async (user: AdminUser) => {
+    const targetRole = user.role === "ADMIN" ? "USER" : "ADMIN";
+    const actionText = targetRole === "ADMIN" ? "관리자로 승격" : "일반 유저로 강등";
+
+    if (!window.confirm(`'${user.name}'님을 ${actionText} 하시겠습니까?`)) return;
+
+    try {
+      await changeUserRole(user.id, targetRole);
+      alert("권한이 변경되었습니다.");
+      
+      // 🚨 수정된 부분: fetchUsers() -> fetchData()로 변경
+      fetchData(); 
+    } catch (e) {
+      console.error(e);
+      alert("권한 변경 실패");
     }
   };
 
@@ -197,20 +225,39 @@ const AdminPage: React.FC = () => {
                         <td className="p-4">{new Date(u.created_at).toLocaleDateString()}</td>
                         <td className="p-4 text-center">
                             {u.admin_memo && (
-                            <span title={u.admin_memo}> {/* 👈 span으로 감싸고 title을 여기에! */}
+                            <span title={u.admin_memo}>
                                 <MessageSquare size={16} className="mx-auto text-gray-400" />
                             </span>
                         )}
-                    </td>
+                        </td>
                         <td className="p-4 text-center flex justify-center gap-2">
+                          
+                          {/* ✅ 1. 권한 변경 버튼 (ADMIN <-> USER 토글) */}
+                          <button 
+                              onClick={() => handleToggleRole(u)} 
+                              className={`p-2 rounded transition-colors ${
+                                  u.role === 'ADMIN' 
+                                  ? "bg-purple-50 text-purple-600 hover:bg-purple-100" 
+                                  : "bg-yellow-50 text-yellow-600 hover:bg-yellow-100"
+                              }`} 
+                              title={u.role === 'ADMIN' ? "일반 유저로 강등" : "관리자로 승격"}
+                          >
+                              {u.role === 'ADMIN' ? <UserCheck size={16} /> : <ShieldAlert size={16} />}
+                          </button>
+
+                          {/* 2. 차단/해제 (관리자 아닐 때만) */}
                           {u.role !== 'ADMIN' && (
-                            <>
-                              <button onClick={() => handleToggleBan(u)} className={`p-2 rounded transition-colors ${u.is_banned ? 'bg-yellow-500 text-white' : 'bg-yellow-50 text-yellow-600'}`} title={u.is_banned ? '차단 해제' : '로그인 차단'}>
-                                {u.is_banned ? <UserCheck size={16} /> : <UserX size={16} />}
-                              </button>
-                              <button onClick={() => handleUpdateUser(u)} className="bg-blue-50 text-blue-500 hover:bg-blue-500 hover:text-white p-2 rounded transition-colors" title="권한/메모 수정"><Edit size={16} /></button>
-                              <button onClick={() => handleDeleteUser(u.id, u.username)} className="bg-red-50 text-red-500 hover:bg-red-500 hover:text-white p-2 rounded transition-colors" title="회원 삭제"><Trash2 size={16} /></button>
-                            </>
+                            <button onClick={() => handleToggleBan(u)} className={`p-2 rounded transition-colors ${u.is_banned ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}`} title={u.is_banned ? '차단 해제' : '로그인 차단'}>
+                              {u.is_banned ? <UserCheck size={16} /> : <UserX size={16} />}
+                            </button>
+                          )}
+
+                          {/* 3. 메모 수정 */}
+                          <button onClick={() => handleUpdateUser(u)} className="bg-blue-50 text-blue-500 hover:bg-blue-500 hover:text-white p-2 rounded transition-colors" title="메모 수정"><Edit size={16} /></button>
+                          
+                          {/* 4. 회원 삭제 (관리자 아닐 때만) */}
+                          {u.role !== 'ADMIN' && (
+                             <button onClick={() => handleDeleteUser(u.id, u.username)} className="bg-red-50 text-red-500 hover:bg-red-500 hover:text-white p-2 rounded transition-colors" title="회원 삭제"><Trash2 size={16} /></button>
                           )}
                         </td>
                       </tr>

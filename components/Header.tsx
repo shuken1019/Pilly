@@ -16,16 +16,26 @@ import { getMyProfile } from "../backend/services/mypageService";
 interface HeaderProps {
   onNavClick: (pathOrView: ViewState | string) => void;
   currentView: ViewState;
+  // ✅ [추가] 부모(App.tsx)로부터 프로필 이미지를 받습니다.
+  profileImage?: string | null;
 }
 
-const Header: React.FC<HeaderProps> = ({ onNavClick, currentView }) => {
+const Header: React.FC<HeaderProps> = ({
+  onNavClick,
+  currentView,
+  profileImage,
+}) => {
   const navigate = useNavigate();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // ✅ 이제 username은 "localStorage username"에 의존하지 말고 profile에서 세팅
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+
+  // ✅ 헤더 자체적으로도 이미지를 관리 (백업용)
+  const [localProfileImage, setLocalProfileImage] = useState<string | null>(
+    null
+  );
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20);
@@ -36,37 +46,41 @@ const Header: React.FC<HeaderProps> = ({ onNavClick, currentView }) => {
       if (!token) {
         setDisplayName(null);
         setIsAdmin(false);
+        setLocalProfileImage(null);
         return;
       }
 
       try {
-        // ✅ token이 있으면 서버에서 내 정보 받아와서 닉네임 표시
-        const profile = await getMyProfile(); // { id, username, name, role }
+        const profile = await getMyProfile();
         const name = profile?.name || profile?.username || "사용자";
         setDisplayName(name);
+
+        // ✅ 서버에서 받아온 이미지 저장
+        setLocalProfileImage(profile?.profileImage || null);
 
         const role = String(profile?.role || "").toLowerCase();
         setIsAdmin(role === "admin");
       } catch (e) {
-        // 토큰 만료/불일치면 정리
-        console.error("프로필 조회 실패(토큰 만료 가능)", e);
+        console.error("프로필 조회 실패", e);
         localStorage.removeItem("token");
         localStorage.removeItem("username");
         setDisplayName(null);
         setIsAdmin(false);
+        setLocalProfileImage(null);
       }
     };
 
     syncLoginState();
 
     return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+  }, [profileImage]); // ✅ 이미지가 변경될 때마다 헤더 갱신
 
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("username");
     setDisplayName(null);
     setIsAdmin(false);
+    setLocalProfileImage(null);
     alert("로그아웃 되었습니다.");
     window.location.href = "/";
   };
@@ -76,6 +90,9 @@ const Header: React.FC<HeaderProps> = ({ onNavClick, currentView }) => {
     setIsMobileMenuOpen(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
+
+  // ✅ 최종적으로 보여줄 이미지 (App에서 준게 있으면 그거 쓰고, 없으면 헤더가 직접 찾은거 씀)
+  const displayImage = profileImage || localProfileImage;
 
   return (
     <header
@@ -166,8 +183,17 @@ const Header: React.FC<HeaderProps> = ({ onNavClick, currentView }) => {
                     : "text-charcoal"
                 }`}
               >
-                <div className="w-7 h-7 bg-olive-primary/10 rounded-full flex items-center justify-center text-olive-primary">
-                  <User size={16} />
+                {/* ✅ 프로필 사진 동그라미 처리 */}
+                <div className="w-8 h-8 rounded-full overflow-hidden border border-gray-200 flex items-center justify-center bg-gray-100">
+                  {displayImage ? (
+                    <img
+                      src={displayImage}
+                      alt="Profile"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <User size={16} className="text-olive-primary" />
+                  )}
                 </div>
                 <span>{displayName}님</span>
               </button>
@@ -245,7 +271,19 @@ const Header: React.FC<HeaderProps> = ({ onNavClick, currentView }) => {
                   onClick={() => handleNavClick("/mypage")}
                   className="font-bold text-olive-primary flex items-center gap-2"
                 >
-                  <User size={18} /> {displayName}님 (마이페이지)
+                  {/* ✅ 모바일 메뉴에서도 사진 표시 */}
+                  <div className="w-6 h-6 rounded-full overflow-hidden border border-gray-200 flex items-center justify-center bg-gray-100">
+                    {displayImage ? (
+                      <img
+                        src={displayImage}
+                        alt="Profile"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <User size={14} className="text-olive-primary" />
+                    )}
+                  </div>
+                  {displayName}님 (마이페이지)
                 </button>
                 <button
                   onClick={handleLogout}

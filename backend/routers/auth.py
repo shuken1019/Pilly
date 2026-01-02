@@ -7,9 +7,12 @@ from schemas.user import UserCreate, UserLogin, Token, UserOut
 from utils.security import get_password_hash, verify_password, create_access_token, SECRET_KEY, ALGORITHM
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
+from dotenv import load_dotenv # .env 사용을 위해 추가
 
-# 카카오 앱 키 (따옴표 필수)
-KAKAO_CLIENT_ID = "234076b99f1688d6769264ebd5c51548"
+# 환경변수 로드
+load_dotenv()
+# .env에 없으면 하드코딩된 값 사용
+KAKAO_CLIENT_ID = os.getenv("KAKAO_CLIENT_ID", "234076b99f1688d6769264ebd5c51548")
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
@@ -34,14 +37,14 @@ def signup(user: UserCreate):
             
             hashed_pw = get_password_hash(user.password)
             
-            # 일반 회원가입 시에도 email 컬럼을 같이 채워주면 좋습니다. (필요 시 수정)
+            # ✅ [수정] recovery_email 추가 및 role 대문자 통일
             sql = """
                 INSERT INTO users (
                     username, password, name, 
-                    real_name, birthdate, phone, email, 
+                    real_name, birthdate, phone, email, recovery_email,
                     role
                 ) 
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             """
 
             cur.execute(sql, (
@@ -51,8 +54,9 @@ def signup(user: UserCreate):
                 user.real_name, 
                 user.birthdate, 
                 user.phone, 
-                user.email, 
-                "user"  # 기본 역할은 일반 사용자
+                user.email,
+                user.email, # recovery_email에도 email 저장 (안전장치)
+                "USER"      # ✅ 'user' -> 'USER' (대문자 통일)
             ))
             conn.commit()
             return {"message": "회원가입 성공"}
@@ -104,7 +108,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
     conn = get_conn()
     try:
         with conn.cursor() as cur:
-            # ✅ [핵심] SELECT * 를 사용하여 real_name, birthdate 등 모든 컬럼을 가져옵니다.
+            # ✅ SELECT * 유지 (모든 정보 가져오기)
             cur.execute("SELECT * FROM users WHERE username = %s", (username,))
             user = cur.fetchone()
             
@@ -123,7 +127,6 @@ def read_users_me(current_user: dict = Depends(get_current_user)):
 # ✅ 5. 카카오 로그인 API
 @router.post("/kakao")
 async def kakao_login(data: KakaoCode):
-    # 1. 카카오 토큰 요청
     token_url = "https://kauth.kakao.com/oauth/token"
     payload = {
         "grant_type": "authorization_code",
@@ -142,7 +145,7 @@ async def kakao_login(data: KakaoCode):
     token_json = token_res.json()
     kakao_access_token = token_json.get("access_token")
 
-    # 2. 카카오 사용자 정보 요청
+    # 카카오 사용자 정보 요청
     user_info_url = "https://kapi.kakao.com/v2/user/me"
     headers = {
         "Authorization": f"Bearer {kakao_access_token}",
@@ -156,45 +159,53 @@ async def kakao_login(data: KakaoCode):
         raise HTTPException(status_code=400, detail="카카오 유저 정보 조회 실패")
 
     user_info = user_info_res.json()
-    kakao_account = user_info.get("kakao_account")
+    kakao_account = user_info.get("kakao_account", {})
     kakao_id = user_info.get("id")
 
-    if not kakao_account:
+    if not kakao_id:
         raise HTTPException(status_code=400, detail="카카오 계정 정보를 읽을 수 없습니다.")
 
     email = kakao_account.get("email", "")
-    nickname = kakao_account.get("profile", {}).get("nickname", "카카오유저")
+    # 닉네임 가져오기 (properties 혹은 profile)
+    properties = user_info.get("properties", {})
+    nickname = properties.get("nickname")
+    if not nickname:
+        nickname = kakao_account.get("profile", {}).get("nickname", f"카카오유저_{kakao_id}")
 
-    # 3. DB 처리 (회원가입/로그인)
     conn = get_conn()
     try:
         with conn.cursor() as cur:
             username_key = f"kakao_{kakao_id}"
             
+            # DB 조회
             cur.execute("SELECT * FROM users WHERE username = %s", (username_key,))
             user = cur.fetchone()
 
+            # ✅ [로직 유지]
+            # 이미 가입된 유저(user가 있음) -> DB 정보를 그대로 사용 (user['name'])
+            # 신규 유저(user가 없음) -> 카카오 정보로 INSERT
+
             if not user:
-                # 신규 가입
                 hashed_pw = get_password_hash(f"kakao_pw_{kakao_id}")
                 
-                # ✅ [수정] email 컬럼에도 값을 같이 넣어줍니다.
-                insert_sql = """
+                sql = """
                     INSERT INTO users (username, password, name, recovery_email, email, role) 
                     VALUES (%s, %s, %s, %s, %s, %s)
                 """
-                cur.execute(insert_sql, (username_key, hashed_pw, nickname, email, email, "USER"))
+                cur.execute(sql, (username_key, hashed_pw, nickname, email, email, "USER"))
                 conn.commit()
                 
+                # INSERT 후 다시 조회해서 user 변수에 담음
                 cur.execute("SELECT * FROM users WHERE username = %s", (username_key,))
                 user = cur.fetchone()
             
+            # 토큰 발급
             access_token = create_access_token(data={"sub": user['username']})
             
             return {
                 "access_token": access_token,
                 "token_type": "bearer",
-                "name": user['name'],
+                "name": user['name'],      # DB에 저장된 닉네임 반환 (수정했으면 수정한 이름)
                 "username": user['username']
             }
     finally:

@@ -1,6 +1,5 @@
-// src/components/CommunityList.tsx
 import React, { useEffect, useState } from "react";
-import { Edit3, Heart, MessageSquare, ImageIcon } from "lucide-react";
+import { Edit3, Heart, MessageSquare, User } from "lucide-react";
 import { getPosts, CommunityPost } from "../backend/services/communityService";
 
 interface CommunityListProps {
@@ -84,7 +83,6 @@ const CommunityList: React.FC<CommunityListProps> = ({
             <div
               key={post.id}
               onClick={() => onSelectPost(post.id)}
-              // ✅ [수정] flex-row로 변경하여 글과 이미지를 가로로 배치
               className="border-b last:border-b-0 py-5 cursor-pointer hover:bg-gray-50 transition px-2 flex justify-between gap-4"
             >
               {/* 왼쪽: 텍스트 정보 */}
@@ -97,10 +95,32 @@ const CommunityList: React.FC<CommunityListProps> = ({
                 </p>
 
                 <div className="flex justify-between items-center">
-                  <div className="flex gap-3 text-xs text-gray-400">
-                    <span className="font-medium text-gray-500">
-                      {post.username ?? "익명"}
-                    </span>
+                  <div className="flex gap-3 text-xs text-gray-400 items-center">
+                    
+                    {/* ✅ 작성자 정보 영역 수정 */}
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-6 h-6 rounded-full bg-gray-100 overflow-hidden flex items-center justify-center border border-gray-200 flex-shrink-0">
+                        {/* 🚨 profileImage 대신 profile_image만 사용해서 TS 에러 해결 */}
+                        {post.profile_image ? (
+                        <img
+                          src={post.profile_image}
+                          alt="profile"
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            // 혹시라도 이미지 경로가 깨지면 회색 아이콘으로 대체
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <User size={14} className="text-gray-400" />
+                      )}
+                    </div>
+                      <span className="font-medium text-gray-500">
+                        {post.nickname || post.username}
+                      </span>
+                    </div>
+
+                    <span className="text-gray-300">|</span>
                     <span>
                       {new Date(post.created_at).toLocaleDateString()}
                     </span>
@@ -125,24 +145,16 @@ const CommunityList: React.FC<CommunityListProps> = ({
                 </div>
               </div>
 
-              {/* ✅ [추가] 오른쪽: 이미지 썸네일 (이미지가 있을 때만 표시) */}
+              {/* 오른쪽: 게시글 이미지 썸네일 */}
               {post.image_url && (
-                <div className="w-24 h-24 rounded-xl overflow-hidden bg-gray-100 border border-gray-200 flex-shrink-0">
+                <div className="w-20 h-20 rounded-xl overflow-hidden bg-gray-100 border border-gray-200 flex-shrink-0 shadow-sm">
                   <img
                     src={post.image_url}
                     alt="thumbnail"
                     className="w-full h-full object-cover"
                     crossOrigin="anonymous"
                     onError={(e) => {
-                      // 이미지 로드 실패 시 아이콘으로 대체
                       e.currentTarget.style.display = "none";
-                      e.currentTarget.parentElement?.classList.add(
-                        "flex",
-                        "items-center",
-                        "justify-center"
-                      );
-                      e.currentTarget.parentElement!.innerHTML =
-                        '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-300"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>';
                     }}
                   />
                 </div>

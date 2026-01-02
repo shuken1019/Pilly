@@ -20,6 +20,9 @@ import AdminPage from "./components/AdminPage";
 import AdminRoute from "./components/route/AdminRoute";
 import KakaoCallback from "./components/KakaoCallback";
 
+// 🚨 [수정 1] 이 import가 빠져 있어서 에러가 났던 겁니다!
+import { getMyProfile } from "./backend/services/mypageService";
+
 const App: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -35,8 +38,10 @@ const App: React.FC = () => {
     null
   );
 
-  // ✅ [추가] 검색 화면을 강제로 초기화하기 위한 키 값
   const [searchKey, setSearchKey] = useState(0);
+
+  // ✅ 프로필 이미지 상태
+  const [userProfileImage, setUserProfileImage] = useState<string | null>(null);
 
   // URL 경로 동기화
   useEffect(() => {
@@ -64,6 +69,26 @@ const App: React.FC = () => {
     }
   }, [location.pathname]);
 
+  // ✅ [추가] 앱 시작/페이지 이동 시 내 프로필(사진) 가져오기
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        setUserProfileImage(null);
+        return;
+      }
+      
+      try {
+        const profile = await getMyProfile();
+        // 프로필 이미지가 있으면 상태 업데이트
+        setUserProfileImage(profile.profileImage || null);
+      } catch (e) {
+        console.error("프로필 로드 실패:", e);
+      }
+    };
+    fetchProfile();
+  }, [location.pathname]); // 페이지 이동할 때마다 체크
+
   const checkLogin = (): boolean => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -74,7 +99,6 @@ const App: React.FC = () => {
     return true;
   };
 
-  // ✅ [수정] 헤더 메뉴 클릭 핸들러
   const handleHeaderNav = (pathOrView: ViewState | string) => {
     if (pathOrView === ViewState.LOGIN || pathOrView === ViewState.SIGNUP) {
       setAuthView(pathOrView);
@@ -83,10 +107,9 @@ const App: React.FC = () => {
 
     const path = pathOrView as string;
 
-    // "약 검색" 메뉴를 눌렀을 때 초기화 로직
     if (path === "/search") {
-      setSearchKey((prev) => prev + 1); // 키 값을 변경하여 강제 리렌더링 (초기화)
-      setExternalFilters(null); // 마이페이지 등에서 넘어온 필터 제거
+      setSearchKey((prev) => prev + 1);
+      setExternalFilters(null);
     }
 
     if (["/ai-search", "/community", "/mypage"].includes(path)) {
@@ -153,7 +176,6 @@ const App: React.FC = () => {
       case ViewState.SEARCH:
         return (
           <div className="pt-20 min-h-screen">
-            {/* ✅ [수정] key 속성 추가: searchKey가 바뀌면 컴포넌트가 새로 만들어짐(초기화) */}
             <SearchSection key={searchKey} externalFilters={externalFilters} />
           </div>
         );
@@ -229,7 +251,12 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-warmWhite flex flex-col">
-      <Header onNavClick={handleHeaderNav} currentView={viewState} />
+      {/* 🚨 [수정 2] userProfileImage를 Header에 전달해야 함! */}
+      <Header 
+        onNavClick={handleHeaderNav} 
+        currentView={viewState} 
+        profileImage={userProfileImage} 
+      />
       <main className="flex-grow">{renderContent()}</main>
       <Footer />
       <ChatBot />
