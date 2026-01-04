@@ -23,6 +23,7 @@ export interface SearchResult {
 
 export enum ViewState {
   HOME = "HOME",
+  ABOUT="ABOUT",
   LOGIN = "LOGIN",
   SIGNUP = "SIGNUP",
   SEARCH = "SEARCH",

@@ -119,9 +119,9 @@ const Header: React.FC<HeaderProps> = ({
         {/* 데스크탑 메뉴 */}
         <div className="hidden md:flex items-center gap-8">
           <button
-            onClick={() => handleNavClick("/")}
+            onClick={() => handleNavClick("/about")}
             className={`font-medium transition-colors hover:text-olive-primary ${
-              currentView === ViewState.HOME
+              currentView === ViewState.ABOUT
                 ? "text-olive-primary"
                 : "text-charcoal"
             }`}

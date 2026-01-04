@@ -2,10 +2,9 @@ import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Header from "./components/Header";
 import Hero from "./components/Hero";
-import Features from "./components/Features";
+import AboutPage from "./components/AboutPage";
 import SearchSection from "./components/SearchSection";
 import AiSearchSection from "./components/AiSearchSection";
-import Testimonials from "./components/Testimonials";
 import Footer from "./components/Footer";
 import ResultModal from "./components/ResultModal";
 import AuthModal from "./components/AuthModal";
@@ -43,10 +42,12 @@ const App: React.FC = () => {
   // ✅ 프로필 이미지 상태
   const [userProfileImage, setUserProfileImage] = useState<string | null>(null);
 
+  const [isChatOpen, setIsChatOpen] = useState(false);
   // URL 경로 동기화
   useEffect(() => {
     const pathToView: { [key: string]: ViewState } = {
       "/": ViewState.HOME,
+      "/about": ViewState.ABOUT,
       "/search": ViewState.SEARCH,
       "/ai-search": ViewState.AI_SEARCH,
       "/community": ViewState.COMMUNITY,
@@ -166,13 +167,19 @@ const App: React.FC = () => {
         return (
           <>
             <Hero
-              onImageUpload={handleImageUpload}
-              onScrollToAiSearch={() => navigate("/ai-search")}
+              onAiSearchClick={() => navigate("/ai-search")}
+              onSearchClick={() => navigate("/search")}
+              onCommunityClick={() => navigate("/community")}
+              onChatOpen={() => setIsChatOpen(true)}
             />
-            <SearchSection onInputClick={() => navigate("/search")} />
-            <Features /> <Testimonials />
+            
+
           </>
         );
+      case ViewState.ABOUT:
+        return <AboutPage />;
+
+
       case ViewState.SEARCH:
         return (
           <div className="pt-20 min-h-screen">
@@ -251,7 +258,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-warmWhite flex flex-col">
-      {/* 🚨 [수정 2] userProfileImage를 Header에 전달해야 함! */}
       <Header 
         onNavClick={handleHeaderNav} 
         currentView={viewState} 
@@ -259,7 +265,7 @@ const App: React.FC = () => {
       />
       <main className="flex-grow">{renderContent()}</main>
       <Footer />
-      <ChatBot />
+      <ChatBot isOpen={isChatOpen} setIsOpen={() => setIsChatOpen(false)} />
       <ResultModal
         isOpen={modalOpen}
         onClose={closeModal}
