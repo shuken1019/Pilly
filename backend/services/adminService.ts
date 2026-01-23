@@ -2,7 +2,7 @@
 import axios from "axios";
 
 // 1. 주소 수정: /api/admin 까지 포함해야 합니다.
-const API_URL = "http://127.0.0.1:8000/api/admin";
+const API_URL = "http://13.124.212.174:8000/api/admin";
 
 // 2. 인증 헤더 함수 (필수!)
 const getAuthHeaders = () => {

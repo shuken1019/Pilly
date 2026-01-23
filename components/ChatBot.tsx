@@ -13,7 +13,7 @@ interface ChatBotProps {
   setIsOpen: (open: boolean) => void;
 }
 
-const API_BASE = "http://127.0.0.1:8000";
+const API_BASE = "http://13.124.212.174:8000";
 
 // --- 약 이름 링크 렌더링 헬퍼 함수들 (기존 로직 유지) ---
 const EXAMPLE_PATTERN = /([A-Za-z가-힣0-9·\-\s]+)\(\s*예\s*:\s*([^)]+)\)/g;

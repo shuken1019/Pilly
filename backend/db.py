@@ -6,7 +6,7 @@ from dotenv import load_dotenv #env 파일 로드하는 함수
 Base_DIR =(os.path.abspath(__file__)) #현재 파일의 절대경로
 load_dotenv(os.path.join(os.path.dirname(Base_DIR), '.env'))# .env 파일 경로 설정 후 로드
 
-DB_HOST = os.getenv('DB_HOST', '127.0.0.1')
+DB_HOST = os.getenv('DB_HOST', '13.124.212.174')
 DB_PORT = int(os.getenv('DB_PORT', 3306))
 DB_USER = os.getenv('DB_USER', 'root')
 DB_PASSWORD = os.getenv('DB_PASSWORD', '')

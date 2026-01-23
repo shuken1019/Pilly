@@ -1,46 +1,55 @@
-# backend/routers/upload.py
-
 from fastapi import APIRouter, UploadFile, File, HTTPException
-import shutil
+from fastapi.responses import JSONResponse
 import os
 import uuid
-from pathlib import Path
+from wand.image import Image
 
-# 프론트엔드 서비스(communityService.ts)가 /api/community/upload 로 요청하므로 prefix를 맞춤
-router = APIRouter(
-    prefix="/api/community",
-    tags=["Upload"]
-)
+router = APIRouter()
 
-@router.post("/upload")
-async def upload_image(file: UploadFile = File(...)):
+UPLOAD_DIR = "uploads"
+if not os.path.exists(UPLOAD_DIR):
+    os.makedirs(UPLOAD_DIR)
+
+@router.post("/")
+async def upload_file(file: UploadFile = File(...)):
     try:
-        # 1. 저장할 폴더 절대 경로 설정 (backend/uploads)
-        # 현재 파일(routers/upload.py)의 부모(routers)의 부모(backend) -> uploads
-        BASE_DIR = Path(__file__).resolve().parent.parent
-        UPLOAD_DIR = BASE_DIR / "uploads"
+        # 1. 고유한 파일명 생성
+        file_uuid = str(uuid.uuid4())
+        # 파일명에서 확장자 추출 (소문자로 변환)
+        if "." in file.filename:
+            file_extension = file.filename.split(".")[-1].lower()
+        else:
+            file_extension = "jpg" # 확장자가 없으면 기본 jpg
 
-        # 폴더가 없으면 생성
-        if not UPLOAD_DIR.exists():
-            UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+        file_name = f"{file_uuid}.{file_extension}"
+        file_location = os.path.join(UPLOAD_DIR, file_name)
 
-        # 2. 파일명 랜덤 생성 (중복 방지)
-        # 확장자 추출
-        filename = file.filename
-        ext = os.path.splitext(filename)[1] if filename else ""
-        
-        # 안전한 파일명 생성 (uuid 사용)
-        saved_filename = f"{uuid.uuid4().hex}{ext}"
-        file_path = UPLOAD_DIR / saved_filename
+        # 2. 일단 원본 파일을 저장
+        with open(file_location, "wb+") as file_object:
+            file_object.write(await file.read())
 
-        # 3. 파일 저장
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        # 3. HEIC 파일이면 JPG로 변환
+        if file_extension == 'heic':
+            jpg_file_name = f"{file_uuid}.jpg"
+            jpg_file_location = os.path.join(UPLOAD_DIR, jpg_file_name)
 
-        # 4. 접근 가능한 URL 반환
-        # main.py에서 app.mount("/uploads", ...)로 연결해뒀으므로 접근 가능
-        return {"url": f"http://127.0.0.1:8000/uploads/{saved_filename}"}
+            # Wand 라이브러리로 변환
+            with Image(filename=file_location) as img:
+                img.format = 'jpeg'
+                img.save(filename=jpg_file_location)
+
+            # 원본 삭제 및 경로 업데이트
+            os.remove(file_location)
+            file_name = jpg_file_name
+            file_location = jpg_file_location
+            print(f"✅ HEIC 변환 완료: {jpg_file_location}")
+
+        print(f"이미지 저장 완료: {file_location}")
+
+        # URL 반환
+        file_url = f"/uploads/{file_name}"
+        return {"filename": file_name, "file_url": file_url, "location": file_location}
 
     except Exception as e:
-        print(f"❌ Image Upload Failed: {e}")
-        raise HTTPException(status_code=500, detail=f"이미지 업로드 실패: {str(e)}")
+        print(f"이미지 업로드 실패: {str(e)}")
+        return JSONResponse(status_code=500, content={"message": f"이미지 업로드 실패: {str(e)}"})

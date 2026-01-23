@@ -108,7 +108,7 @@ const AiSearchSection: React.FC<AiSearchSectionProps> = () => {
     onDrop,
     accept: {
       "image/jpeg": [".jpg", ".jpeg"],
-      "image/png": [".png"],
+      "image/png, .heic, .HEIC, .heic, .HEIC": [".png"],
       "image/heic": [".heic"], // ✅ HEIC 허용
     },
     multiple: false,
@@ -136,7 +136,7 @@ const AiSearchSection: React.FC<AiSearchSectionProps> = () => {
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
       const response = await axios.post(
-        "http://127.0.0.1:8000/api/pills/analyze",
+        "http://13.124.212.174:8000/api/pills/analyze",
         formData,
         { headers }
       );

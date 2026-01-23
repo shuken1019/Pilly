@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_URL = "http://127.0.0.1:8000/api/community";
+const API_URL = "http://13.124.212.174:8000/api/community";
 
 export interface CommunityPost {
   id: number;

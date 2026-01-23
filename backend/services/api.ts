@@ -1,7 +1,7 @@
 import axios from "axios";
 
 // 백엔드 주소 (/api 포함)
-const BASE_URL = "http://127.0.0.1:8000/api";
+const BASE_URL = "http://13.124.212.174:8000/api";
 
 // 1. Axios 인스턴스 생성
 export const api = axios.create({

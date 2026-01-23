@@ -4,7 +4,7 @@ import axios from "axios"
 // --------------------------------------
 // 🔧 1) Axios Instance 설정
 // --------------------------------------
-const API_BASE = "http://localhost:8000" 
+const API_BASE = "http://13.124.212.174" 
 
 const axiosAuth = axios.create({
   baseURL: API_BASE,
