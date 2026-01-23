@@ -137,7 +137,7 @@ export default function ChatBot({ isOpen, setIsOpen }: ChatBotProps) {
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+   <div className="fixed bottom-6 right-6 z-[9999] flex flex-col items-end">
       {/* 채팅창 몸체 */}
       {isOpen && (
         <div className="w-[350px] h-[550px] bg-white rounded-[32px] shadow-[0_20px_60px_rgba(0,0,0,0.15)] border border-gray-100 flex flex-col mb-4 overflow-hidden animate-fade-in-up">

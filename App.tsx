@@ -113,7 +113,7 @@ const App: React.FC = () => {
       setExternalFilters(null);
     }
 
-    if (["/ai-search", "/community", "/mypage"].includes(path)) {
+    if (["/ai-search", "/community", "/mypage", "/search"].includes(path)) {
       if (!checkLogin()) return;
     }
     navigate(path);
@@ -167,8 +167,8 @@ const App: React.FC = () => {
         return (
           <>
             <Hero
-              onAiSearchClick={() => navigate("/ai-search")}
-              onSearchClick={() => navigate("/search")}
+              onAiSearchClick={() => handleHeaderNav("/ai-search")}
+              onSearchClick={() => handleHeaderNav("/search")}
               onCommunityClick={() => navigate("/community")}
               onChatOpen={() => setIsChatOpen(true)}
             />
@@ -265,7 +265,7 @@ const App: React.FC = () => {
       />
       <main className="flex-grow">{renderContent()}</main>
       <Footer />
-      <ChatBot isOpen={isChatOpen} setIsOpen={() => setIsChatOpen(false)} />
+      <ChatBot isOpen={isChatOpen} setIsOpen={setIsChatOpen} />
       <ResultModal
         isOpen={modalOpen}
         onClose={closeModal}
