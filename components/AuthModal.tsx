@@ -22,7 +22,7 @@ interface AuthModalProps {
 
 const KakaoLoginButton = () => {
   const KAKAO_CLIENT_ID = "234076b99f1688d6769264ebd5c51548";
-  const KAKAO_REDIRECT_URI = "http://13.124.212.174/oauth/kakao";
+  const KAKAO_REDIRECT_URI = "http://3.38.78.49/oauth/kakao";
   const kakaoURL = `https://kauth.kakao.com/oauth/authorize?client_id=${KAKAO_CLIENT_ID}&redirect_uri=${KAKAO_REDIRECT_URI}&response_type=code`;
 
   return (

@@ -83,7 +83,7 @@ app = FastAPI(title="Pilly Backend API,lifespan=lifespan")
 # --- 2. CORS 설정 ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://13.124.212.174", "http://13.124.212.174:5173"],
+    allow_origins=["http://localhost:3000", "http://3.38.78.49", "http://3.38.78.49:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

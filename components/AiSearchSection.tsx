@@ -136,7 +136,7 @@ const AiSearchSection: React.FC<AiSearchSectionProps> = () => {
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
       const response = await axios.post(
-        "http://13.124.212.174:8000/api/pills/analyze",
+        "http://3.38.78.49:8000/api/pills/analyze",
         formData,
         { headers }
       );

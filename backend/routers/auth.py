@@ -131,7 +131,7 @@ async def kakao_login(data: KakaoCode):
     payload = {
         "grant_type": "authorization_code",
         "client_id": KAKAO_CLIENT_ID,
-        "redirect_uri": "http://13.124.212.174/oauth/kakao", 
+        "redirect_uri": "http://3.38.78.49/oauth/kakao", 
         "code": data.code
     }
     

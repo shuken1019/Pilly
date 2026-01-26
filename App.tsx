@@ -146,7 +146,11 @@ const App: React.FC = () => {
       setExternalFilters({ keyword });
       navigate("/search");
     };
+    const loginHandler = () => {
+      setAuthView(ViewState.LOGIN); // 로그인 모달 상태를 ON으로 변경
+    };
     window.addEventListener("pilly:go-search", handler as EventListener);
+    window.addEventListener("pilly:open-login", loginHandler);
     return () =>
       window.removeEventListener("pilly:go-search", handler as EventListener);
   }, [navigate]);

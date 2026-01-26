@@ -3,7 +3,7 @@ import { Pill } from "./api"; // 경로가 맞는지 확인해주세요 (types.t
 
 // 1. 공통 Base URL 설정 (/api 까지)
 // 이렇게 해야 /api/mypage 와 /api/users, /api/auth 등을 모두 호출할 수 있습니다.
-const BASE_URL = "http://13.124.212.174:8000/api";
+const BASE_URL = "http://3.38.78.49:8000/api";
 
 // 2. Axios 인스턴스 생성 ('api' 변수 정의)
 const api = axios.create({
@@ -28,7 +28,7 @@ api.interceptors.request.use((config) => {
 
 // 내 프로필 조회
 export async function getMyProfile() {
-  // GET http://13.124.212.174:8000/api/mypage/profile
+  // GET http://3.38.78.49:8000/api/mypage/profile
   const res = await api.get("/mypage/profile");
   return res.data;
 }

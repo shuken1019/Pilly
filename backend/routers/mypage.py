@@ -126,7 +126,7 @@ async def upload_profile_image(file: UploadFile = File(...), current_user: dict 
             shutil.copyfileobj(file.file, buffer)
             
       
-        image_url = f"http://13.124.212.174:8000/uploads/{unique_filename}"
+        image_url = f"http://3.38.78.49:8000/uploads/{unique_filename}"
         
         # DB 업데이트
         conn = get_conn()
