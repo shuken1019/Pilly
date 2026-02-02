@@ -306,43 +306,62 @@ async def analyze_multiple_pills(file: UploadFile = File(...)):
 
 @app.get("/health")
 def health_check(): return {"status": "ok"}
+# main.py 파일의 search_pills 함수를 이걸로 교체하세요!
+
 @app.get("/api/pills")
-def search_pills(keyword: Optional[str]=Query(None), page: int=1, page_size: int=20):
+def search_pills(
+    keyword: Optional[str] = Query(None), 
+    page: int = 1, 
+    page_size: int = 20,
+    sort: str = Query("name")  # 정렬 파라미터
+):
     conn = get_conn()
     try:
         with conn.cursor(pymysql.cursors.DictCursor) as cur:
-            # 페이징 계산
             limit = page_size
             offset = (page - 1) * page_size
             
-            # 🚨 핵심 수정: DISTINCT를 사용하여 중복 제거!
-            # m.* : 약 기본 정보만 가져옴 (상세 정보 join으로 인한 중복 방지)
+            # 기본 쿼리
             base_sql = """
                 SELECT DISTINCT m.* FROM pill_mfds m
                 LEFT JOIN pill_easy_info e ON m.ITEM_SEQ = e.ITEM_SEQ
             """
             
+            # ---------------------------------------------------------
+            # ✅ 정렬 로직 (여기가 핵심입니다!)
+            # ---------------------------------------------------------
+            if sort == 'name':
+                # '가'보다 작은 글자(영어, 숫자 등)는 뒤로 보내라 (True=1, False=0)
+                # 즉, 한글(0) -> 영어/숫자(1) 순서로 정렬됨
+                order_by = "ORDER BY (m.ITEM_NAME < '가'), m.ITEM_NAME"
+            
+            elif sort == 'recent':
+                # 품목기준코드(ITEM_SEQ)가 클수록 최신 데이터
+                order_by = "ORDER BY m.ITEM_SEQ DESC"
+            
+            else:
+                # 기본값
+                order_by = "ORDER BY m.ITEM_NAME"
+            # ---------------------------------------------------------
+
+            # 쿼리 실행 로직
             if keyword:
-                # 검색어가 있을 때: 이름, 증상, 효능 등에서 검색
                 sql = base_sql + """
                     WHERE replace(m.ITEM_NAME, ' ', '') LIKE %s 
                     OR replace(e.EFCY_QESITM, ' ', '') LIKE %s
                     OR replace(m.EE_DOC_DATA, ' ', '') LIKE %s
                 """
-                # 검색어 공백 제거 및 앞뒤 % 붙이기
-                p = f"%{keyword.replace(' ', '')}%"
+                sql += f" {order_by} LIMIT %s OFFSET %s"
                 
-                # 정렬 및 페이징 추가
-                sql += " ORDER BY m.ITEM_NAME LIMIT %s OFFSET %s"
+                p = f"%{keyword.replace(' ', '')}%"
                 cur.execute(sql, (p, p, p, limit, offset))
             else:
-                # 검색어 없을 때: 전체 목록
-                sql = base_sql + " ORDER BY m.ITEM_NAME LIMIT %s OFFSET %s"
+                sql = base_sql + f" {order_by} LIMIT %s OFFSET %s"
                 cur.execute(sql, (limit, offset))
             
             rows = cur.fetchall()
             
-            # 이미지 주소 보정 (선택 사항)
+            # 이미지 주소 보정
             for row in rows:
                 if row.get('item_image'):
                     row['item_image'] = row['item_image'].replace('127.0.0.1', '3.38.78.49')

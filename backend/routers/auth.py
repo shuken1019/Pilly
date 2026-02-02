@@ -7,7 +7,7 @@ from schemas.user import UserCreate, UserLogin, Token, UserOut
 from utils.security import get_password_hash, verify_password, create_access_token, SECRET_KEY, ALGORITHM
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
-from dotenv import load_dotenv # .env 사용을 위해 추가
+from dotenv import load_dotenv
 
 # 환경변수 로드
 load_dotenv()
@@ -37,7 +37,6 @@ def signup(user: UserCreate):
             
             hashed_pw = get_password_hash(user.password)
             
-            # ✅ [수정] recovery_email 추가 및 role 대문자 통일
             sql = """
                 INSERT INTO users (
                     username, password, name, 
@@ -55,15 +54,15 @@ def signup(user: UserCreate):
                 user.birthdate, 
                 user.phone, 
                 user.email,
-                user.email, # recovery_email에도 email 저장 (안전장치)
-                "USER"      # ✅ 'user' -> 'USER' (대문자 통일)
+                user.email,
+                "USER"
             ))
             conn.commit()
             return {"message": "회원가입 성공"}
     finally:
         conn.close()
 
-# 2. 로그인 API
+# 2. 로그인 API (수정됨: 문법 오류 해결 및 차단 로직 적용)
 @router.post("/login", response_model=Token)
 def login(user: UserLogin):
     conn = get_conn()
@@ -73,12 +72,21 @@ def login(user: UserLogin):
             cur.execute("SELECT * FROM users WHERE username = %s", (user.username,))
             db_user = cur.fetchone()
             
+            # 1. 아이디/비밀번호 확인
             if not db_user or not verify_password(user.password, db_user['password']):
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="아이디 또는 비밀번호가 잘못되었습니다."
                 )
+
+            # 2. 차단 여부 확인 (문법 수정 완료)
+            if db_user.get('is_banned'):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="관리자에 의해 차단된 계정입니다. 고객센터에 문의하세요."
+                )
             
+            # 3. 토큰 생성
             access_token = create_access_token(data={"sub": db_user['username']})
             
             return {
@@ -90,7 +98,7 @@ def login(user: UserLogin):
     finally:
         conn.close()
 
-# 3. 현재 로그인한 사용자 정보 가져오기 (Dependency)
+# 3. 현재 로그인한 사용자 정보 가져오기
 def get_current_user(token: str = Depends(oauth2_scheme)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -108,7 +116,6 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
     conn = get_conn()
     try:
         with conn.cursor() as cur:
-            # ✅ SELECT * 유지 (모든 정보 가져오기)
             cur.execute("SELECT * FROM users WHERE username = %s", (username,))
             user = cur.fetchone()
             
@@ -124,7 +131,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
 def read_users_me(current_user: dict = Depends(get_current_user)):
     return current_user
 
-# ✅ 5. 카카오 로그인 API
+# 5. 카카오 로그인 API (수정됨: 차단 로직 들여쓰기 교정)
 @router.post("/kakao")
 async def kakao_login(data: KakaoCode):
     token_url = "https://kauth.kakao.com/oauth/token"
@@ -166,7 +173,6 @@ async def kakao_login(data: KakaoCode):
         raise HTTPException(status_code=400, detail="카카오 계정 정보를 읽을 수 없습니다.")
 
     email = kakao_account.get("email", "")
-    # 닉네임 가져오기 (properties 혹은 profile)
     properties = user_info.get("properties", {})
     nickname = properties.get("nickname")
     if not nickname:
@@ -181,10 +187,6 @@ async def kakao_login(data: KakaoCode):
             cur.execute("SELECT * FROM users WHERE username = %s", (username_key,))
             user = cur.fetchone()
 
-            # ✅ [로직 유지]
-            # 이미 가입된 유저(user가 있음) -> DB 정보를 그대로 사용 (user['name'])
-            # 신규 유저(user가 없음) -> 카카오 정보로 INSERT
-
             if not user:
                 hashed_pw = get_password_hash(f"kakao_pw_{kakao_id}")
                 
@@ -195,9 +197,16 @@ async def kakao_login(data: KakaoCode):
                 cur.execute(sql, (username_key, hashed_pw, nickname, email, email, "USER"))
                 conn.commit()
                 
-                # INSERT 후 다시 조회해서 user 변수에 담음
+                # INSERT 후 다시 조회
                 cur.execute("SELECT * FROM users WHERE username = %s", (username_key,))
                 user = cur.fetchone()
+            
+            # 차단 여부 확인 (위치 교정됨)
+            if user.get('is_banned'):
+                 raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="관리자에 의해 차단된 계정입니다."
+                )
             
             # 토큰 발급
             access_token = create_access_token(data={"sub": user['username']})
@@ -205,7 +214,7 @@ async def kakao_login(data: KakaoCode):
             return {
                 "access_token": access_token,
                 "token_type": "bearer",
-                "name": user['name'],      # DB에 저장된 닉네임 반환 (수정했으면 수정한 이름)
+                "name": user['name'],
                 "username": user['username']
             }
     finally:

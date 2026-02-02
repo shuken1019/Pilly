@@ -26,7 +26,7 @@ class UserUpdate(BaseModel):
     is_banned: Optional[bool] = None
     admin_memo: Optional[str] = None
 
-# 2. 권한 변경 전용 모델 (✅ 새로 추가됨)
+# 2. 권한 변경 전용 모델
 class RoleUpdate(BaseModel):
     role: str
 
@@ -53,7 +53,7 @@ def get_all_users(
     finally:
         conn.close()
 
-# ✅ [핵심 추가] 사용자 권한 변경 API (ADMIN <-> USER 토글용)
+# 2. 사용자 권한 변경 API (ADMIN <-> USER 토글용)
 @router.put("/users/{user_id}/role")
 def update_user_role(user_id: int, data: RoleUpdate, admin: dict = Depends(check_admin)):
     conn = get_conn()
@@ -104,6 +104,21 @@ def update_user(user_id: int, user_data: UserUpdate, admin: dict = Depends(check
             return {"message": "회원 정보가 수정되었습니다."}
     finally:
         conn.close()
+
+@router.delete("/users/{user_id}")
+def delete_user(user_id: int, admin: dict = Depends(check_admin)):
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            # 1. 작성한 게시글 먼저 삭제 (외래키 오류 방지)
+            cur.execute("DELETE FROM posts WHERE user_id = %s", (user_id,))
+            
+            # 2. 회원 삭제
+            cur.execute("DELETE FROM users WHERE id = %s", (user_id,))
+            conn.commit()
+            return {"message": "회원이 삭제되었습니다."}
+    finally:
+        conn.close()      
 
 # 4. 전체 게시글 목록 조회 (관리자용)
 @router.get("/posts")
@@ -162,5 +177,42 @@ def get_dashboard_stats(admin: dict = Depends(check_admin)):
                 "user_count": user_count,
                 "post_count": post_count
             }
+    finally:
+        conn.close()
+
+# 8. 약품 삭제 (✅ 들여쓰기 수정됨 & 관리자 체크 추가됨)
+@router.delete("/pills/{item_seq}") 
+def delete_pill(item_seq: int, admin: dict = Depends(check_admin)):
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            # 1. pill_easy_info 테이블에서 먼저 삭제 (참조 무결성 에러 방지)
+            sql_easy = "DELETE FROM pill_easy_info WHERE ITEM_SEQ = %s"
+            cur.execute(sql_easy, (item_seq,))
+            
+            # 2. pill_mfds 테이블에서 삭제
+            sql = "DELETE FROM pill_mfds WHERE ITEM_SEQ = %s"
+            cur.execute(sql, (item_seq,))
+            
+            conn.commit()
+            return {"status": "success", "message": f"{item_seq} 삭제 완료"}
+    except Exception as e:
+        print(f"삭제 에러: {e}")
+        return {"status": "error", "message": str(e)}
+    finally:
+        conn.close()
+        
+@router.delete("/users/{user_id}")
+def delete_user(user_id: int, admin: dict = Depends(check_admin)):
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            # 1. 작성한 게시글 먼저 삭제 (외래키 오류 방지)
+            cur.execute("DELETE FROM posts WHERE user_id = %s", (user_id,))
+            
+            # 2. 회원 삭제
+            cur.execute("DELETE FROM users WHERE id = %s", (user_id,))
+            conn.commit()
+            return {"message": "회원이 삭제되었습니다."}
     finally:
         conn.close()
