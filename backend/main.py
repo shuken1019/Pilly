@@ -310,12 +310,47 @@ def health_check(): return {"status": "ok"}
 def search_pills(keyword: Optional[str]=Query(None), page: int=1, page_size: int=20):
     conn = get_conn()
     try:
-        with conn.cursor() as cur:
-            limit = page_size; offset = (page-1)*page_size
-            sql = "SELECT * FROM pill_mfds LIMIT %s OFFSET %s"
-            cur.execute(sql, (limit, offset))
-            return {"items": cur.fetchall()}
-    finally: conn.close()
+        with conn.cursor(pymysql.cursors.DictCursor) as cur:
+            # 페이징 계산
+            limit = page_size
+            offset = (page - 1) * page_size
+            
+            # 🚨 핵심 수정: DISTINCT를 사용하여 중복 제거!
+            # m.* : 약 기본 정보만 가져옴 (상세 정보 join으로 인한 중복 방지)
+            base_sql = """
+                SELECT DISTINCT m.* FROM pill_mfds m
+                LEFT JOIN pill_easy_info e ON m.ITEM_SEQ = e.ITEM_SEQ
+            """
+            
+            if keyword:
+                # 검색어가 있을 때: 이름, 증상, 효능 등에서 검색
+                sql = base_sql + """
+                    WHERE replace(m.ITEM_NAME, ' ', '') LIKE %s 
+                    OR replace(e.EFCY_QESITM, ' ', '') LIKE %s
+                    OR replace(m.EE_DOC_DATA, ' ', '') LIKE %s
+                """
+                # 검색어 공백 제거 및 앞뒤 % 붙이기
+                p = f"%{keyword.replace(' ', '')}%"
+                
+                # 정렬 및 페이징 추가
+                sql += " ORDER BY m.ITEM_NAME LIMIT %s OFFSET %s"
+                cur.execute(sql, (p, p, p, limit, offset))
+            else:
+                # 검색어 없을 때: 전체 목록
+                sql = base_sql + " ORDER BY m.ITEM_NAME LIMIT %s OFFSET %s"
+                cur.execute(sql, (limit, offset))
+            
+            rows = cur.fetchall()
+            
+            # 이미지 주소 보정 (선택 사항)
+            for row in rows:
+                if row.get('item_image'):
+                    row['item_image'] = row['item_image'].replace('127.0.0.1', '3.38.78.49')
+
+            return {"items": rows}
+            
+    finally:
+        conn.close()
 @app.post("/api/pills/{item_seq}/like")
 def toggle_like(item_seq: str): return {"is_liked": True}
 @app.get("/pills/{item_seq}")
