@@ -8,9 +8,9 @@ load_dotenv(os.path.join(os.path.dirname(Base_DIR), '.env'))# .env 파일 경로
 
 DB_HOST = os.getenv('DB_HOST', '3.38.78.49')
 DB_PORT = int(os.getenv('DB_PORT', 3306))
-DB_USER = os.getenv('DB_USER', 'root')
+DB_USER = os.getenv('DB_USER', 'admin')
 DB_PASSWORD = os.getenv('DB_PASSWORD', '')
-DB_NAME = os.getenv('DB_NAME', 'pill_db')
+DB_NAME = os.getenv('DB_NAME', 'Pilly')
 
 def get_db_connection(): #mysql 연결을 만들어서 리턴하는 함수. 필요할때마다 호출 후, 사용이 끝나면  conn.close() 해주기
 

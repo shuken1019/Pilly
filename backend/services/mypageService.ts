@@ -105,4 +105,11 @@ export const withdrawAccount = async () => {
   return response.data;
 };
 
-// backend/services/mypageService.ts
+// backend/services/mypageService.ts 에 추가
+export const deleteHistoryItem = async (historyId: number) => {
+  const token = localStorage.getItem("token");
+  const response = await axios.delete(`${API_URL}/pills/history/${historyId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+};

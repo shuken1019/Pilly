@@ -21,6 +21,7 @@ import {
   updateProfileImage,
   updatePassword,
   withdrawAccount,
+  deleteHistoryItem,
 } from "../backend/services/mypageService"; // 경로 확인 필요 (api_mypage.ts 파일명에 맞게)
 import { Pill } from "../backend/services/api";
 import { useNavigate } from "react-router-dom";
@@ -162,7 +163,21 @@ const fetchData = async () => {
     }
     setViewMode("profile_edit");
   };
+// --- 핸들러: 검색 기록 개별 삭제 ---
+const handleDeleteHistory = async (e: React.MouseEvent, id: number) => {
+  e.stopPropagation(); // 👈 중요: 부모의 클릭 이벤트(검색 실행)가 발생하지 않도록 막음
+  
+  if (!window.confirm("이 검색 기록을 삭제하시겠습니까?")) return;
 
+  try {
+    await deleteHistoryItem(id);
+    // ✅ 성공 시 상태 업데이트 (화면에서 즉시 제거)
+    setSearchHistory(prev => prev.filter(item => item.id !== id));
+  } catch (error) {
+    console.error("삭제 실패:", error);
+    alert("삭제에 실패했습니다.");
+  }
+};
   // --- 핸들러: 저장하기 (API 연동) ---
   const handleSaveProfile = async () => {
     try {
@@ -366,18 +381,38 @@ const fetchData = async () => {
 
             <div className="bg-gray-50 rounded-2xl p-4 min-h-[200px]">
               {/* 최근 검색 탭 */}
-              {activeTab === "history" && (
-                <ul className="space-y-2">
-                  {searchHistory.length === 0 ? <EmptyState text="최근 검색 기록이 없습니다." /> : searchHistory.map((item, idx) => (
-                    <li key={idx} onClick={() => onSearchClick(item.keyword)} className="flex justify-between p-3 bg-white rounded-xl shadow-sm cursor-pointer hover:shadow-md transition-shadow">
-                      <span className="font-bold text-charcoal">{item.keyword}</span>
-                      <span className="text-xs text-gray-400">
-                        {item.created_at ? new Date(item.created_at).toLocaleDateString() : ""}
-                        </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              {{/* 최근 검색 탭 */}
+{activeTab === "history" && (
+  <ul className="space-y-2">
+    {searchHistory.length === 0 ? (
+      <EmptyState text="최근 검색 기록이 없습니다." />
+    ) : (
+      searchHistory.map((item, idx) => (
+        <li 
+          key={item.id || idx} 
+          onClick={() => onSearchClick(item.keyword)} 
+          className="group flex justify-between items-center p-4 bg-white rounded-xl shadow-sm cursor-pointer hover:shadow-md transition-all border border-transparent hover:border-gray-100"
+        >
+          <div className="flex flex-col">
+            <span className="font-bold text-charcoal">{item.keyword}</span>
+            <span className="text-[10px] text-gray-400 mt-1">
+              {item.created_at ? new Date(item.created_at).toLocaleDateString() : ""}
+            </span>
+          </div>
+          
+          {/* ❌ 삭제 버튼 */}
+          <button 
+            onClick={(e) => handleDeleteHistory(e, item.id)}
+            className="p-2 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors"
+            title="삭제"
+          >
+            <X size={18} />
+          </button>
+        </li>
+      ))
+    )}
+  </ul>
+)}
 
               {/* 내가 쓴 글 탭 */}
             {activeTab === "posts" && (

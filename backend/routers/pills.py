@@ -60,12 +60,18 @@ def get_current_user_id_optional(request: Request) -> Optional[int]:
 def ask_gemini(image_bytes):
     try:
         model = genai.GenerativeModel('gemini-2.0-flash') 
+        # 💡 AI에게 아주 구체적인 가이드를 줍니다.
         prompt = """
-        Analyze this pill image. Return a JSON object with these fields:
-        - shape: (choose one: 원형, 타원형, 장방형, 삼각형, 사각형, 마름모, 오각형, 육각형, 팔각형)
-        - color: (choose one: 하양, 노랑, 주황, 분홍, 빨강, 갈색, 연두, 초록, 청록, 파랑, 남색, 보라, 회색, 검정, 투명)
-        - print: (text printed on the pill, if any)
-        Return ONLY the JSON. No markdown.
+        Analyze this pill image very strictly.
+        1. shape: 
+           - If it's perfectly round like a circle, return '원형'.
+           - If it's elongated or egg-shaped, return '타원형'.
+           - Other options: 장방형, 삼각형, 사각형, 마름모, 오각형, 육각형, 팔각형.
+        2. color: Primary color (하양, 노랑, 주황, 분홍, 빨강, 갈색, 연두, 초록, 청록, 파랑, 남색, 보라, 회색, 검정, 투명).
+        3. print: Letters or numbers on the pill.
+
+        Return ONLY a raw JSON object like this:
+        {"shape": "원형", "color": "하양", "print": "TY"}
         """
         image_parts = [{"mime_type": "image/jpeg", "data": image_bytes}]
         response = model.generate_content([prompt, image_parts[0]])
@@ -77,51 +83,75 @@ def ask_gemini(image_bytes):
 
 @router.post("/analyze")
 async def analyze_pill(file: UploadFile = File(...)):
-    print(f"📸 이미지 수신: {file.filename}")
     contents = await file.read()
     gemini_result = ask_gemini(contents)
     
-    detected_info = {}
-    if gemini_result:
-        detected_info = {
-            "shape": gemini_result.get("shape", ""),
-            "color": gemini_result.get("color", ""),
-            "print": gemini_result.get("print", "")
-        }
-    else:
-        return {"success": False, "message": "AI가 약을 인식하지 못했습니다."}
+    if not gemini_result:
+        return {"success": False, "message": "AI 분석 실패"}
 
-    # AI 결과로 DB 검색 (간단 버전)
+    s = gemini_result.get("shape", "").strip()
+    c = gemini_result.get("color", "").strip()
+    p = gemini_result.get("print", "").strip()
+    
     conn = get_conn()
-    matched_pills = []
     try:
         with conn.cursor(pymysql.cursors.DictCursor) as cur:
-            shape_query = f"%{detected_info.get('shape', '')}%"
-            color_query = f"%{detected_info.get('color', '')}%"
-            print_query = f"%{detected_info.get('print', '').strip()}%"
-
+            # ✅ 핵심 수정: m.* 뿐만 아니라 e의 상세 컬럼들도 SELECT 하고 LEFT JOIN 추가
             sql = """
-                SELECT * FROM pill_mfds 
-                WHERE drug_shape LIKE %s AND color_class1 LIKE %s
+                SELECT m.*, 
+                       e.efcy_qesitm, e.use_method_qesitm, e.atpn_warn_qesitm, 
+                       e.atpn_qesitm, e.intrc_qesitm, e.se_qesitm, e.deposit_method_qesitm
+                FROM pill_mfds AS m
+                LEFT JOIN pill_easy_info AS e ON TRIM(m.item_seq) = TRIM(e.item_seq)
+                WHERE 1=1
             """
-            params = [shape_query, color_query]
-            
-            if detected_info.get('print', '').strip():
-                sql += " AND (print_front LIKE %s OR print_back LIKE %s)"
-                params.extend([print_query, print_query])
-                
-            sql += " LIMIT 10"
+            params = []
+            if s:
+                sql += " AND m.drug_shape = %s"
+                params.append(s)
+            if c:
+                sql += " AND (m.color_class1 = %s OR m.color_class2 = %s)"
+                params.extend([c, c])
+            if p:
+                sql += " AND (m.print_front LIKE %s OR m.print_back LIKE %s)"
+                params.extend([f"%{p}%", f"%{p}%"])
+
+            sql += " LIMIT 20"
             cur.execute(sql, tuple(params))
             matched_pills = cur.fetchall()
+
+            #Fallback: 결과 없을 때 재검색 시에도 JOIN 유지
+            if len(matched_pills) < 1 and p:
+                sql = """
+                    SELECT m.*, e.efcy_qesitm, e.use_method_qesitm, e.atpn_warn_qesitm, 
+                           e.atpn_qesitm, e.intrc_qesitm, e.se_qesitm, e.deposit_method_qesitm
+                    FROM pill_mfds AS m
+                    LEFT JOIN pill_easy_info AS e ON TRIM(m.item_seq) = TRIM(e.item_seq)
+                    WHERE (m.print_front LIKE %s OR m.print_back LIKE %s) LIMIT 10
+                """
+                cur.execute(sql, (f"%{p}%", f"%{p}%"))
+                matched_pills = cur.fetchall()
     finally:
         conn.close()
 
     results = []
     for pill in matched_pills:
-        results.append({"detected_info": detected_info, "pill_info": pill})
-
+        if pill.get('item_image'):
+            pill['item_image'] = pill['item_image'].replace('127.0.0.1', '3.38.78.49')
+        results.append({"detected_info": {"shape": s, "color": c, "print": p}, "pill_info": pill})
     return {"success": True, "results": results}
 
+    # 이미지 URL 보정 및 결과 정리
+    results = []
+    for pill in matched_pills:
+        if pill.get('item_image'):
+            pill['item_image'] = pill['item_image'].replace('127.0.0.1', '3.38.78.49')
+        results.append({
+            "detected_info": {"shape": s, "color": c, "print": p},
+            "pill_info": pill
+        })
+
+    return {"success": True, "results": results}
 # ---------------------------------------------------------
 # [3] 통합 검색 API (검색 기록 저장 + 상세 필터링)
 # ---------------------------------------------------------
@@ -166,8 +196,8 @@ def search_pills(
                 params.extend([k_nospace, k_nospace, k_nospace])
 
             if drug_shape:
-                where_clauses.append("m.drug_shape LIKE %s")
-                params.append(f"%{drug_shape}%")
+                where_clauses.append("m.drug_shape = %s")     # <- = 은 '완전 일치' 검색
+                params.append(drug_shape)                     # <- % 를 지워서 정확한 단어만 매칭
 
             if color_class:
                 where_clauses.append("(m.color_class1 LIKE %s OR m.color_class2 LIKE %s)")
@@ -201,7 +231,12 @@ def search_pills(
 
             # 목록 조회
             offset = (page - 1) * page_size
-            sql = f"SELECT m.* {base_from} {where_sql} {order_by} LIMIT %s OFFSET %s"
+            sql = f"""
+                SELECT m.*, 
+                       e.efcy_qesitm, e.use_method_qesitm, e.atpn_warn_qesitm, 
+                       e.atpn_qesitm, e.intrc_qesitm, e.se_qesitm, e.deposit_method_qesitm 
+                {base_from} {where_sql} {order_by} LIMIT %s OFFSET %s
+            """
             cur.execute(sql, tuple(params + [page_size, offset]))
             items = cur.fetchall()
 
@@ -232,29 +267,30 @@ def get_pill_detail(item_seq: str, current_user_id: Optional[int] = Depends(get_
     conn = get_conn()
     try:
         with conn.cursor(pymysql.cursors.DictCursor) as cur:
-            # 조회수 증가
-            cur.execute("UPDATE pill_mfds SET view_count = view_count + 1 WHERE item_seq = %s", (item_seq,))
+            # 1. 조회수 증가 (TRIM 추가로 확실하게)
+            cur.execute("UPDATE pill_mfds SET view_count = view_count + 1 WHERE TRIM(item_seq) = %s", (item_seq.strip(),))
             conn.commit()
 
+            # 2. 상세 데이터 가져오기 (TRIM으로 양쪽 공백 제거 후 비교)
             sql = """
                 SELECT m.*, 
                        e.efcy_qesitm, e.use_method_qesitm, e.atpn_warn_qesitm, 
                        e.atpn_qesitm, e.intrc_qesitm, e.se_qesitm, e.deposit_method_qesitm
                 FROM pill_mfds AS m 
-                LEFT JOIN pill_easy_info AS e ON m.item_seq = e.item_seq 
-                WHERE m.item_seq = %s
+                LEFT JOIN pill_easy_info AS e ON TRIM(m.item_seq) = TRIM(e.item_seq) 
+                WHERE TRIM(m.item_seq) = %s
             """
-            cur.execute(sql, (item_seq,))
+            cur.execute(sql, (item_seq.strip(),))
             pill = cur.fetchone()
 
             if not pill:
                 raise HTTPException(status_code=404, detail="해당 약을 찾을 수 없습니다.")
 
-            # 이미지 URL 수정
+            # 이미지 경로 보정
             if pill.get('item_image'):
                 pill['item_image'] = pill['item_image'].replace('127.0.0.1', '3.38.78.49')
 
-            # 좋아요 여부
+            # 좋아요 여부 확인
             pill['is_liked'] = False
             if current_user_id:
                 cur.execute("SELECT 1 FROM pill_likes WHERE user_id = %s AND item_seq = %s", (current_user_id, item_seq))
@@ -264,7 +300,6 @@ def get_pill_detail(item_seq: str, current_user_id: Optional[int] = Depends(get_
             return {"pill": pill}
     finally:
         conn.close()
-
 # ---------------------------------------------------------
 # [5] 좋아요 토글 API (search.py 기능 복구)
 # ---------------------------------------------------------
@@ -290,3 +325,32 @@ def toggle_like(item_seq: str, current_user_id: Optional[int] = Depends(get_curr
             return {"is_liked": is_liked}
     finally:
         conn.close()
+# [추가] 검색 기록 조회 API
+@router.get("/history")
+def get_search_history(current_user_id: Optional[int] = Depends(get_current_user_id_optional)):
+    if not current_user_id:
+        return {"history": []}
+    
+    conn = get_conn()
+    try:
+        with conn.cursor(pymysql.cursors.DictCursor) as cur:
+            # 최근 10개의 검색어만 가져옴
+            cur.execute("SELECT id, keyword FROM search_history WHERE user_id = %s ORDER BY created_at DESC LIMIT 10", (current_user_id,))
+            return {"history": cur.fetchall()}
+    finally:
+        conn.close()
+
+# [추가] 검색 기록 개별 삭제 API
+@router.delete("/history/{history_id}")
+def delete_search_history(history_id: int, current_user_id: Optional[int] = Depends(get_current_user_id_optional)):
+    if not current_user_id:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
+    
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM search_history WHERE id = %s AND user_id = %s", (history_id, current_user_id))
+            conn.commit()
+            return {"success": True}
+    finally:
+        conn.close()        

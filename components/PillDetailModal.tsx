@@ -81,7 +81,9 @@ const InfoSection = ({
 };
 
 const PillDetailModal: React.FC<PillDetailModalProps> = ({ pill, onClose }) => {
-  const [isImageZoomed, setIsImageZoomed] = useState(false); // 확대 상태 관리
+  console.log("🔍 모달에 전달된 데이터:", pill); // 이 로그를 크롬 콘솔(F12)에서 확인하세요!
+  
+  const [isImageZoomed, setIsImageZoomed] = useState(false);
 
   // 데이터 가공 (기존 유지)
   const efficacy = pill.efcy_qesitm?.trim() || "상세 효능 정보가 없습니다.";
