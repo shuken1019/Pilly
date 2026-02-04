@@ -1,3 +1,4 @@
+import pymysql
 import os
 import sys
 import base64
@@ -10,11 +11,13 @@ from pathlib import Path
 from typing import Optional, List, Dict, Any
 from PIL import Image, ImageEnhance, ImageOps
 from contextlib import asynccontextmanager
+from datetime import datetime
 
 # ✅ FastAPI & Libs
-from fastapi import FastAPI, UploadFile, File, Query
+from fastapi import FastAPI, UploadFile, File, Query, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.security import OAuth2PasswordBearer
 import google.generativeai as genai
 from google.oauth2 import service_account
 from google.cloud import vision
@@ -22,7 +25,7 @@ from dotenv import load_dotenv
 
 # ✅ DB & Routers
 from db import get_conn 
-from routers import auth, community, search, upload, mypage, admin, chat
+from routers import auth, community, upload, mypage, admin, chat ,pills
 
 load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent
@@ -45,6 +48,13 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Pilly Backend API", lifespan=lifespan)
 
 # --- CORS ---
+origins = [
+    "http://3.38.78.49",
+    "http://3.38.78.49:3000",
+    "http://localhost:3000",
+    "http://127.0.0.1:5173",
+]
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -63,14 +73,18 @@ app.include_router(upload.router)
 app.include_router(mypage.router)
 app.include_router(admin.router)
 app.include_router(chat.router)
-app.include_router(search.router)
-
+#app.include_router(search.router)
+app.include_router(pills.router)
 # --- Google Vision ---
 KEY_PATH = "service-account-file.json"
 vision_client = None
 if os.path.exists(KEY_PATH):
     credentials = service_account.Credentials.from_service_account_file(KEY_PATH)
     vision_client = vision.ImageAnnotatorClient(credentials=credentials)
+
+# --- Security Helper (검색 기록 저장용) ---
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
+
 
 # --- Utils ---
 def fix_image_orientation(image: Image.Image) -> Image.Image:
@@ -103,7 +117,6 @@ def find_db_match(text: str, color: str):
                 clean_text = text.replace(" ", "").upper()
                 print(f">>> 🔎 DB 검색 키워드: '{clean_text}'")
                 
-                # ⭐️ 오타 보정 사전 (Correction Dictionary)
                 correction_map = {
                     "K": "GHB", "H15": "GHB", "CHB": "GHB", "GNB": "GHB", 
                     "GH8": "GHB", "6HB": "GHB", "GMB": "GHB", "OHB": "GHB",
@@ -111,7 +124,6 @@ def find_db_match(text: str, color: str):
                 }
                 
                 if clean_text in correction_map:
-                    print(f">>> 🛠️ 오타 자동 보정: '{clean_text}' -> '{correction_map[clean_text]}'")
                     clean_text = correction_map[clean_text]
                 
                 sql = """
@@ -135,7 +147,7 @@ def find_db_match(text: str, color: str):
     finally: conn.close()
 
 # ---------------------------------------------------------
-# 1. OpenCV Detection (Location Finding)
+# 1. OpenCV Detection
 # ---------------------------------------------------------
 def detect_pills_opencv_relaxed(pil_image) -> List[bytes]:
     print(">>> 1. OpenCV 탐지 시도...")
@@ -174,14 +186,12 @@ def detect_pills_opencv_relaxed(pil_image) -> List[bytes]:
     return detected_crops
 
 # ---------------------------------------------------------
-# ⭐️ 2. Gemini FULL IMAGE Fallback (OpenCV 실패 시 가동)
+# 2. Gemini Fallback
 # ---------------------------------------------------------
 def detect_full_gemini(pil_image):
     print(">>> 🚨 OpenCV 실패! Gemini에게 [전체 이미지] 분석 요청!")
+    models = ['models/gemini-2.0-flash', 'gemini-1.5-flash']
     
-    models = ['models/gemini-2.0-flash']
-    
-    # ⭐️ 프롬프트: 좌표와 텍스트를 JSON으로 달라고 요청
     prompt = """
     Analyze this image. Find all pills.
     Return a JSON list of objects.
@@ -189,8 +199,6 @@ def detect_full_gemini(pil_image):
     - "box_2d": [ymin, xmin, ymax, xmax] (0-1000 scale)
     - "text": The engraved text on the pill (e.g., "GHB", "TYLENOL"). If unclear, guess "GHB" or "H15".
     - "color": Color in Korean (e.g., "주황", "하양")
-    
-    Example: [{"box_2d": [100, 200, 300, 400], "text": "GHB", "color": "주황"}]
     """
     
     for model_name in models:
@@ -198,40 +206,28 @@ def detect_full_gemini(pil_image):
             print(f">>> 🤖 모델 실행: {model_name}")
             model = genai.GenerativeModel(model_name)
             response = model.generate_content([prompt, pil_image])
-            
-            # JSON 파싱
             match = re.search(r'\[.*\]', response.text, re.DOTALL)
             if match:
-                results = json.loads(match.group(0))
-                print(f">>> ✅ Gemini 전체 분석 성공: {len(results)}개 발견")
-                return results
+                return json.loads(match.group(0))
         except Exception as e:
             print(f">>> ⚠️ {model_name} 실패: {e}")
             continue
-            
     return []
 
 # ---------------------------------------------------------
-# ⭐️ 3. Gemini Text Reader (Cropped Image)
+# 3. Text Reader
 # ---------------------------------------------------------
 def get_text_from_crop(image_bytes):
-    print(">>> 👁️ Gemini Text Reader (Crop Mode)")
     pil_img = Image.open(io.BytesIO(image_bytes))
-    
-    # 🚨 [수정] 사용할 모델 이름을 정하고, model 변수를 만들어야 합니다!
     model_name = 'models/gemini-2.0-flash' 
-    
     try:
-        # model 변수 생성 (이게 빠져 있었음)
         model = genai.GenerativeModel(model_name)
-        
         response = model.generate_content(["Read the engraved text. Output ONLY text.", pil_img])
         return re.sub(r"[^A-Z0-9]", "", response.text.upper())
     except Exception as e: 
-        print(f"Text Read Error: {e}")
         return ""
 
-# --- Main API ---
+# --- API Endpoints ---
 @app.post("/api/pills/analyze")
 async def analyze_multiple_pills(file: UploadFile = File(...)):
     try:
@@ -240,137 +236,55 @@ async def analyze_multiple_pills(file: UploadFile = File(...)):
         pil_image = fix_image_orientation(pil_image)
         w_img, h_img = pil_image.size
         
-        # 1. OpenCV 시도
         opencv_crops = detect_pills_opencv_relaxed(pil_image)
-        
         final_results = []
         seen_texts = set()
         
-        # 🟢 CASE A: OpenCV가 성공했을 때
         if len(opencv_crops) > 0:
             for img_bytes in opencv_crops:
-                # Gemini로 텍스트 읽기
                 text = get_text_from_crop(img_bytes)
                 color = get_pill_color_hsv(img_bytes)
-                
-                # 중복 및 DB 검색
                 if text and text in seen_texts: continue
                 if text: seen_texts.add(text)
                 
                 candidates = find_db_match(text, color)
                 crop_b64 = base64.b64encode(img_bytes).decode('utf-8')
+                final_results.append({
+                    "detected_info": {"print": text, "color": color},
+                    "candidates": candidates,
+                    "crop_image": f"data:image/jpeg;base64,{crop_b64}"
+                })
+        else:
+            gemini_data = detect_full_gemini(pil_image)
+            for item in gemini_data:
+                box = item.get('box_2d') or list(item.values())[0]
+                ymin, xmin, ymax, xmax = box
+                crop = pil_image.crop((int(xmin/1000*w_img), int(ymin/1000*h_img), int(xmax/1000*w_img), int(ymax/1000*h_img)))
+                buf = io.BytesIO()
+                crop.save(buf, format='JPEG')
                 
+                text = re.sub(r"[^A-Z0-9]", "", item.get('text', '').upper())
+                color = item.get('color', '하양')
+                candidates = find_db_match(text, color)
+                crop_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
                 final_results.append({
                     "detected_info": {"print": text, "color": color},
                     "candidates": candidates,
                     "crop_image": f"data:image/jpeg;base64,{crop_b64}"
                 })
 
-        # 🔴 CASE B: OpenCV가 실패했을 때 (0개) -> Gemini 전체 분석
-        else:
-            gemini_data = detect_full_gemini(pil_image)
-            
-            for item in gemini_data:
-                # 좌표로 자르기
-                box = item.get('box_2d') or list(item.values())[0]
-                ymin, xmin, ymax, xmax = box
-                left = int(xmin / 1000 * w_img)
-                top = int(ymin / 1000 * h_img)
-                right = int(xmax / 1000 * w_img)
-                bottom = int(ymax / 1000 * h_img)
-                
-                crop = pil_image.crop((left, top, right, bottom))
-                buf = io.BytesIO()
-                crop.save(buf, format='JPEG')
-                
-                text = item.get('text', '')
-                color = item.get('color', '하양')
-                
-                # 텍스트 정제
-                clean_text = re.sub(r"[^A-Z0-9]", "", text.upper())
-                
-                candidates = find_db_match(clean_text, color)
-                crop_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
-                
-                final_results.append({
-                    "detected_info": {"print": clean_text, "color": color},
-                    "candidates": candidates,
-                    "crop_image": f"data:image/jpeg;base64,{crop_b64}"
-                })
-
         return {"success": True, "count": len(final_results), "results": final_results}
-        
     except Exception as e:
         print(f">>> 🚨 Fatal Error: {e}")
         return {"success": True, "count": 0, "results": []}
 
-@app.get("/health")
-def health_check(): return {"status": "ok"}
-# main.py 파일의 search_pills 함수를 이걸로 교체하세요!
 
-@app.get("/api/pills")
-def search_pills(
-    keyword: Optional[str] = Query(None), 
-    page: int = 1, 
-    page_size: int = 20,
-    sort: str = Query("name")  # 정렬 파라미터
-):
-    conn = get_conn()
-    try:
-        with conn.cursor(pymysql.cursors.DictCursor) as cur:
-            limit = page_size
-            offset = (page - 1) * page_size
-            
-            # 기본 쿼리
-            base_sql = """
-                SELECT DISTINCT m.* FROM pill_mfds m
-                LEFT JOIN pill_easy_info e ON m.ITEM_SEQ = e.ITEM_SEQ
-            """
-            
-            # ---------------------------------------------------------
-            # ✅ 정렬 로직 (여기가 핵심입니다!)
-            # ---------------------------------------------------------
-            if sort == 'name':
-                # '가'보다 작은 글자(영어, 숫자 등)는 뒤로 보내라 (True=1, False=0)
-                # 즉, 한글(0) -> 영어/숫자(1) 순서로 정렬됨
-                order_by = "ORDER BY (m.ITEM_NAME < '가'), m.ITEM_NAME"
-            
-            elif sort == 'recent':
-                # 품목기준코드(ITEM_SEQ)가 클수록 최신 데이터
-                order_by = "ORDER BY m.ITEM_SEQ DESC"
-            
-            else:
-                # 기본값
-                order_by = "ORDER BY m.ITEM_NAME"
-            # ---------------------------------------------------------
 
-            # 쿼리 실행 로직
-            if keyword:
-                sql = base_sql + """
-                    WHERE replace(m.ITEM_NAME, ' ', '') LIKE %s 
-                    OR replace(e.EFCY_QESITM, ' ', '') LIKE %s
-                    OR replace(m.EE_DOC_DATA, ' ', '') LIKE %s
-                """
-                sql += f" {order_by} LIMIT %s OFFSET %s"
-                
-                p = f"%{keyword.replace(' ', '')}%"
-                cur.execute(sql, (p, p, p, limit, offset))
-            else:
-                sql = base_sql + f" {order_by} LIMIT %s OFFSET %s"
-                cur.execute(sql, (limit, offset))
-            
-            rows = cur.fetchall()
-            
-            # 이미지 주소 보정
-            for row in rows:
-                if row.get('item_image'):
-                    row['item_image'] = row['item_image'].replace('127.0.0.1', '3.38.78.49')
-
-            return {"items": rows}
-            
-    finally:
-        conn.close()
 @app.post("/api/pills/{item_seq}/like")
 def toggle_like(item_seq: str): return {"is_liked": True}
-@app.get("/pills/{item_seq}")
+
+@app.get("/api/pills/{item_seq}")
 def pill_detail(item_seq: int): return {"pill": {}}
+
+@app.get("/health")
+def health_check(): return {"status": "ok"}

@@ -37,7 +37,7 @@ const CommunityList: React.FC<CommunityListProps> = ({
         <div>
           <h2 className="text-2xl font-bold text-charcoal">Pilly 커뮤니티</h2>
           <p className="text-sage text-sm mt-1">
-            영양제 조합, 후기, QnA를 나눠보세요.
+            영양제 조합, 복용 후기, QnA를 나눠보세요.
           </p>
         </div>
         <button
@@ -52,9 +52,9 @@ const CommunityList: React.FC<CommunityListProps> = ({
       {/* CATEGORY */}
       <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
         {[
-          { id: "combo", label: "💊 영양제 꿀조합" },
-          { id: "review", label: "🤒 복용 후기" },
-          { id: "qna", label: "🔍 이 약 뭔가요?" },
+          { id: "free", label: "영양제 꿀조합" },
+          { id: "review", label: "복용 후기" },
+          { id: "qna", label: "Q&A" },
         ].map((c) => (
           <button
             key={c.id}

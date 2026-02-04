@@ -1,20 +1,14 @@
-// src/components/CommunityWrite.tsx
-import React, { useState, useEffect, useRef } from "react";
-import {
-  ArrowLeft,
-  X,
-  Plus,
-  Loader2,
-  Camera,
-} from "lucide-react";
-import {
-  createPost,
-  updatePost,
-  getPostDetail,
-  uploadImage,
-} from "../backend/services/communityService";
-import SearchSection from "./SearchSection";
-import { Pill } from "../backend/services/api";
+import React, { useState, useRef, useEffect } from "react";
+import axios from "axios";
+import { ArrowLeft, X, Plus, Camera, Loader2 } from "lucide-react";
+
+const API_BASE_URL = "http://3.38.78.49:8000/api";
+
+interface Pill {
+  item_seq: string;
+  item_name: string;
+  entp_name: string;
+}
 
 interface CommunityWriteProps {
   onBack: () => void;
@@ -22,248 +16,210 @@ interface CommunityWriteProps {
   editPostId?: number | null;
 }
 
-const CommunityWrite: React.FC<CommunityWriteProps> = ({
-  onBack,
-  onComplete,
-  editPostId,
-}) => {
+const CommunityWrite: React.FC<CommunityWriteProps> = ({ onBack, onComplete, editPostId }) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [category, setCategory] = useState("free");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
-  const [category, setCategory] = useState<"combo" | "review" | "qna">("combo");
-  const [selectedPills, setSelectedPills] = useState<Pill[]>([]);
-
-  // 📸 이미지 관련 상태
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  
+  // 검색 및 태그 상태
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [keyword, setKeyword] = useState("");
+  const [searchResults, setSearchResults] = useState<Pill[]>([]);
+  const [selectedPills, setSelectedPills] = useState<Pill[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
 
-  // 수정 모드일 때 데이터 불러오기
-  useEffect(() => {
-    if (editPostId) {
-      const fetchOriginData = async () => {
-        try {
-          setLoading(true);
-          const data = await getPostDetail(editPostId);
-          setTitle(data.title);
-          setContent(data.content);
-          setCategory(data.category as any);
-          if (data.image_url) setImageUrl(data.image_url); // 이미지 불러오기
-        } catch (error) {
-          console.error(error);
-          alert("글 정보를 불러오지 못했습니다.");
-          onBack();
-        } finally {
-          setLoading(false);
-        }
-      };
-      fetchOriginData();
-    }
-  }, [editPostId, onBack]);
-
-  // 📸 이미지 선택 핸들러
-  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // 이미지 선택 핸들러
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-
-    setUploading(true);
-    try {
-      const url = await uploadImage(file); // 백엔드에 업로드하고 URL 받기
-      setImageUrl(url);
-    } catch (err) {
-      console.error(err);
-      alert("이미지 업로드에 실패했습니다.");
-    } finally {
-      setUploading(false);
+    if (file) {
+      setSelectedFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
     }
   };
 
+  // 약 검색 핸들러
+// 약 검색 핸들러
+  const handleSearchPill = async () => {
+    if (!keyword.trim()) return;
+    
+    // ✅ 1. 로컬 스토리지에서 토큰을 가져와야 합니다. (이게 없으면 백엔드 current_user가 None이 됨)
+    const token = localStorage.getItem("token");
+    console.log("전송 시도 토큰:", token);
+    setIsSearching(true);
+    try {
+      // ✅ 2. API 호출 시 헤더에 토큰을 실어 보냅니다.
+      const res = await axios.get(`${API_BASE_URL}/pills`, { 
+        params: { 
+          keyword: keyword,
+          page: 1,
+          page_size: 20
+        },
+        headers: {
+          Authorization: token ? `Bearer ${token}` : ""
+        }
+      });
+
+      // ✅ 3. 백엔드 응답 구조(items)에 맞춰 데이터 세팅
+      if (res.data && res.data.items) {
+        setSearchResults(res.data.items);
+      } else {
+        setSearchResults([]);
+      }
+    } catch (error) { 
+      console.error("약 검색 중 에러 발생:", error);
+      setSearchResults([]);
+    } finally { 
+      setIsSearching(false); 
+    }
+  };
+  // 약 추가 핸들러
+  const addPill = (pill: Pill) => {
+    if (selectedPills.find((p) => p.item_seq === pill.item_seq)) return alert("이미 추가된 약입니다.");
+    setSelectedPills([...selectedPills, pill]);
+    setKeyword("");
+    setSearchResults([]);
+    setIsSearchOpen(false);
+  };
+
+  // 등록 핸들러
   const handleSubmit = async () => {
+    if (!title.trim() || !content.trim()) return alert("제목과 내용을 입력해주세요.");
     const token = localStorage.getItem("token");
     if (!token) return alert("로그인이 필요합니다.");
-    if (!title.trim() || !content.trim())
-      return alert("제목과 내용을 입력해주세요.");
 
     try {
-      setLoading(true);
-      const postData = {
-        category,
-        title,
-        content,
-        image_url: imageUrl || "", // ✅ 이미지 URL 포함
-        pill_ids: selectedPills.map((p) => parseInt(p.item_seq)),
-      };
-
-      if (editPostId) {
-        await updatePost(token, editPostId, postData);
-        alert("게시글이 수정되었습니다.");
-      } else {
-        await createPost(token, postData);
-        alert("게시글이 등록되었습니다.");
+      setIsUploading(true);
+      let finalImageUrl = previewUrl || "";
+      if (selectedFile) {
+        const formData = new FormData();
+        formData.append("file", selectedFile);
+        const uploadRes = await axios.post(`${API_BASE_URL}/community/upload`, formData, { headers: { "Content-Type": "multipart/form-data" } });
+        finalImageUrl = uploadRes.data.url;
       }
+      const payload = { category, title, content, image_url: finalImageUrl, pill_ids: selectedPills.map(p => Number(p.item_seq)) };
+      const headers = { Authorization: `Bearer ${token}` };
+
+      await axios.post(`${API_BASE_URL}/community`, payload, { headers });
+      alert("게시글이 등록되었습니다!");
       onComplete();
-    } catch (error) {
-      console.error(error);
-      alert("처리 중 오류가 발생했습니다.");
-    } finally {
-      setLoading(false);
-    }
+    } catch (error) { alert("등록 실패"); } finally { setIsUploading(false); }
   };
 
-  if (loading && editPostId && !title)
-    return <div className="p-10 text-center">로딩 중...</div>;
-
   return (
-    <div className="max-w-3xl mx-auto p-6 bg-white min-h-screen">
-      {/* 헤더 */}
-      <div className="flex items-center gap-4 mb-8">
-        <button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-full">
-          <ArrowLeft />
-        </button>
-        <h2 className="text-2xl font-bold">
-          {editPostId ? "글 수정하기" : "글 쓰기"}
-        </h2>
+    <div className="max-w-2xl mx-auto bg-white min-h-screen pb-20 p-6">
+      {/* 뒤로가기 및 타이틀 */}
+      <div className="flex items-center gap-4 mb-6">
+        <button onClick={onBack} className="text-gray-600"><ArrowLeft size={24} /></button>
+        <h2 className="text-2xl font-bold text-gray-800">글 쓰기</h2>
       </div>
 
-      {/* 카테고리 */}
+      {/* 카테고리 탭 (이미지 스타일) */}
       <div className="flex gap-2 mb-6">
         {[
-          { id: "combo", label: "💊 영양제 꿀조합" },
-          { id: "review", label: "🤒 복용 후기" },
-          { id: "qna", label: "🔍 이 약 뭔가요?" },
+          { id: "free", label: "영양제 꿀조합", color: "bg-[#718355] text-white" },
+          { id: "review", label: "복용 후기", color: "bg-[#F3E3D3] text-orange-800" },
+          { id: "qna", label: "QNA", color: "bg-[#E9F0F5] text-blue-800" }
         ].map((cat) => (
           <button
             key={cat.id}
-            onClick={() => setCategory(cat.id as any)}
-            className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${
-              category === cat.id
-                ? "bg-olive-primary text-white"
-                : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-            }`}
+            onClick={() => setCategory(cat.id)}
+            className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${category === cat.id ? `${cat.color} ring-2 ring-offset-1 ring-gray-300` : "bg-gray-100 text-gray-500"}`}
           >
             {cat.label}
           </button>
         ))}
       </div>
 
-      <div className="space-y-4">
-        <input
-          type="text"
-          placeholder="제목을 입력하세요"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className="w-full text-xl font-bold p-4 bg-cream/30 border border-gray-200 rounded-xl focus:outline-none focus:border-olive-primary"
-        />
+      {/* 제목 입력 */}
+      <input
+        type="text"
+        placeholder="제목을 입력하세요"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        className="w-full p-4 mb-4 border border-gray-200 rounded-xl focus:outline-none focus:border-[#718355]"
+      />
 
-        {/* 📸 이미지 업로드 영역 */}
-        <div className="flex gap-4 items-start">
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:border-olive-primary hover:text-olive-primary transition-colors bg-gray-50"
-          >
-            {uploading ? (
-              <Loader2 className="animate-spin" />
-            ) : (
-              <Camera size={24} />
-            )}
-            <span className="text-xs mt-1">사진 추가</span>
-          </button>
-          <input
-            type="file"
-            ref={fileInputRef}
-            className="hidden"
-            accept="image/*"
-            onChange={handleImageChange}
-          />
-
-          {/* 업로드된 이미지 미리보기 */}
-          {imageUrl && (
-            <div className="relative w-20 h-20 rounded-xl overflow-hidden border border-gray-200 group">
-              <img
-                src={imageUrl}
-                alt="Uploaded"
-                className="w-full h-full object-cover"
-              />
-              <button
-                onClick={() => setImageUrl(null)}
-                className="absolute top-1 right-1 p-1 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <X size={12} />
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* 약 태그 영역 */}
-        <div className="p-4 border border-sage/30 rounded-xl bg-white">
-          <div className="flex justify-between items-center mb-3">
-            <span className="text-sm font-bold text-sage">
-              태그된 약 ({selectedPills.length})
-            </span>
-            <button
-              onClick={() => setIsSearchOpen(true)}
-              className="text-xs flex items-center gap-1 bg-olive-primary/10 text-olive-primary px-3 py-1.5 rounded-lg hover:bg-olive-primary hover:text-white transition-colors"
-            >
-              <Plus size={14} /> 약 검색해서 추가
-            </button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {selectedPills.map((pill) => (
-              <div
-                key={pill.item_seq}
-                className="flex items-center gap-2 bg-gray-100 px-3 py-1.5 rounded-full text-sm"
-              >
-                <span>{pill.item_name}</span>
-                <button
-                  onClick={() =>
-                    setSelectedPills((p) =>
-                      p.filter((x) => x.item_seq !== pill.item_seq)
-                    )
-                  }
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <textarea
-          placeholder="내용을 입력하세요."
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          className="w-full h-60 p-4 bg-cream/30 border border-gray-200 rounded-xl focus:outline-none focus:border-olive-primary resize-none"
-        />
-      </div>
-
-      <div className="mt-8 flex justify-end">
-        <button
-          onClick={handleSubmit}
-          disabled={loading || uploading}
-          className="bg-olive-primary text-white px-8 py-3 rounded-xl font-bold text-lg hover:bg-olive-dark shadow-lg transition-all flex items-center gap-2"
+      {/* 사진 추가 버튼 */}
+      <div className="mb-6">
+        <div 
+          onClick={() => fileInputRef.current?.click()}
+          className="w-20 h-20 border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center text-gray-400 cursor-pointer hover:bg-gray-50"
         >
-          {loading && <Loader2 className="animate-spin" size={20} />}
-          {editPostId ? "수정 완료" : "등록하기"}
-        </button>
+          <Camera size={24} />
+          <span className="text-[10px] mt-1">사진 추가</span>
+        </div>
+        <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} />
+        {previewUrl && <img src={previewUrl} className="mt-2 w-32 h-32 object-cover rounded-lg border" />}
       </div>
 
-      {isSearchOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-4xl h-[80vh] rounded-2xl p-4 relative overflow-hidden flex flex-col">
-            <button
-              onClick={() => setIsSearchOpen(false)}
-              className="absolute top-4 right-4 z-10"
-            >
-              <X />
-            </button>
-            <div className="flex-1 overflow-y-auto">
-              <SearchSection />
+      {/* 태그된 약 섹션 (이미지와 동일한 디자인) */}
+      <div className="border border-[#DCE4D8] rounded-xl p-4 mb-6 bg-[#F9FBFA]">
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-[#5B7A58] font-bold text-sm">태그된 약 ({selectedPills.length})</span>
+          <button 
+            onClick={() => setIsSearchOpen(true)}
+            className="bg-[#E9EFEC] text-[#5B7A58] px-3 py-1 rounded-lg text-xs font-bold border border-[#DCE4D8] flex items-center gap-1"
+          >
+            <Plus size={14} /> 약 검색해서 추가
+          </button>
+        </div>
+        
+        {/* 선택된 약들 표시 */}
+        <div className="flex flex-wrap gap-2">
+          {selectedPills.map(pill => (
+            <div key={pill.item_seq} className="bg-white border border-[#DCE4D8] px-3 py-1 rounded-full text-xs flex items-center gap-2">
+              #{pill.item_name}
+              <X size={12} className="cursor-pointer" onClick={() => setSelectedPills(selectedPills.filter(p => p.item_seq !== pill.item_seq))} />
+            </div>
+          ))}
+        </div>
+
+        {/* 검색 모달 스타일 창 */}
+        {isSearchOpen && (
+          <div className="mt-4 p-3 bg-white border border-[#718355] rounded-xl shadow-lg">
+            <div className="flex gap-2 mb-2">
+              <input 
+                type="text" 
+                value={keyword}
+                onChange={(e) => setKeyword(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearchPill()}
+                placeholder="약 이름을 입력하세요"
+                className="flex-1 text-sm p-2 border rounded-md focus:outline-none"
+              />
+              <button onClick={handleSearchPill} className="bg-[#718355] text-white px-3 py-1 rounded-md text-xs">검색</button>
+            </div>
+            <div className="max-h-40 overflow-y-auto">
+              {searchResults.map(p => (
+                <div key={p.item_seq} onClick={() => addPill(p)} className="p-2 hover:bg-gray-50 cursor-pointer text-xs border-b last:border-0 flex justify-between">
+                  <span>{p.item_name}</span>
+                  <span className="text-gray-400">{p.entp_name}</span>
+                </div>
+              ))}
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
+
+      {/* 내용 입력 */}
+      <textarea
+        placeholder="내용을 입력하세요."
+        value={content}
+        onChange={(e) => setContent(e.target.value)}
+        className="w-full p-4 h-64 border border-gray-200 rounded-xl focus:outline-none focus:border-[#718355] resize-none"
+      />
+
+      {/* 하단 등록하기 버튼 */}
+      <button
+        onClick={handleSubmit}
+        disabled={isUploading}
+        className="w-full mt-10 py-4 bg-[#718355] text-white rounded-xl font-bold text-lg hover:bg-[#5b6b45] shadow-lg disabled:bg-gray-300 flex justify-center items-center gap-2"
+      >
+        {isUploading ? <Loader2 className="animate-spin" size={20} /> : "등록하기"}
+      </button>
     </div>
   );
 };

@@ -21,7 +21,7 @@ import {
   updateProfileImage,
   updatePassword,
   withdrawAccount,
-} from "../backend/services/mypageService";
+} from "../backend/services/mypageService"; // 경로 확인 필요 (api_mypage.ts 파일명에 맞게)
 import { Pill } from "../backend/services/api";
 import { useNavigate } from "react-router-dom";
 
@@ -71,9 +71,9 @@ const MyPage: React.FC<MyPageProps> = ({
 
   // --- 상태 관리 ---
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [searchHistory, setSearchHistory] = useState<any[]>([]);
   const [posts, setPosts] = useState<MyPost[]>([]);
-  const [scraps, setScraps] = useState<Pill[]>([]);
+  const [scraps, setScraps] = useState<any[]>([]); // Pill 타입 대신 유연하게 any 사용
   const [loading, setLoading] = useState(true);
   
   const [activeTab, setActiveTab] = useState<TabKey>("history");
@@ -95,11 +95,11 @@ const MyPage: React.FC<MyPageProps> = ({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-  useEffect(() => {
+ useEffect (() => {
     fetchData();
   }, []);
 
-  const fetchData = async () => {
+const fetchData = async () => {
     const token = localStorage.getItem("token");
     if (!token) {
       setLoading(false);
@@ -109,14 +109,12 @@ const MyPage: React.FC<MyPageProps> = ({
     try {
       const [p, h, postsData, s] = await Promise.all([
         getMyProfile(),
-        getMyHistory(),
+        getMyHistory(), // 여기서 {"items": [...]} 가 옵니다.
         getMyPosts(),
         getMyScrappedPills(),
       ]);
-
-      const historyItems = Array.isArray(h?.items) ? h.items : Array.isArray(h) ? h : [];
-      const postItems = Array.isArray(postsData?.items) ? postsData.items : Array.isArray(postsData) ? postsData : [];
-      const scrapItems = Array.isArray(s) ? s : [];
+      console.log("프로필 데이터:", p);
+      console.log("검색 기록 데이터(원본):", h);
 
       setProfile({
             ...p,
@@ -126,24 +124,36 @@ const MyPage: React.FC<MyPageProps> = ({
             email: p.email,
             profileImage: p.profile_image || p.profileImage 
         });
+// 2. 검색 기록 설정 (안전 장치 추가)
+      if (h && Array.isArray(h.items)) {
+        // 서버가 { items: [...] } 형태로 줄 때 (현재 상황)
+        console.log("✅ items 배열을 찾았습니다:", h.items);
+        setSearchHistory(h.items);
+      } else if (Array.isArray(h)) {
+        // 서버가 그냥 [...] 배열만 줄 때
+        console.log("✅ 배열 자체를 받았습니다:", h);
+        setSearchHistory(h);
+      } else {
+        console.warn("⚠️ 검색 기록 데이터 형식이 예상과 다릅니다:", h);
+        setSearchHistory([]);
+      }
+// 3. 게시글 및 스크랩 설정
+      setPosts((postsData as any) || []);
+      setScraps((s as any) || []);
 
-      setHistory(historyItems);
-      setPosts(postItems);
-      setScraps(scrapItems);
     } catch (e) {
       console.error("데이터 로딩 실패:", e);
     } finally {
       setLoading(false);
     }
   };
-
   // --- 핸들러: 수정 모드 진입 ---
   const handleEnterEditMode = () => {
     if (profile) {
       setEditForm({
         name: profile.name || "",
         realName: profile.realName || "", 
-        birthdate: (profile.birthdate || "").replace(/\./g, "-"),
+        birthdate: (profile.birthdate || "").replace(/\./g, "-"), // 날짜 형식 변환
         phone: profile.phone || "",
         email: profile.email || "",
       });
@@ -162,7 +172,7 @@ const MyPage: React.FC<MyPageProps> = ({
       // 2. 서버로 보낼 데이터 (변수명 변환: realName -> real_name)
       const payload = {
         name: editForm.name,
-        real_name: editForm.realName, // 여기가 핵심!
+        real_name: editForm.realName,
         birthdate: editForm.birthdate,
         phone: editForm.phone,
         email: editForm.email
@@ -178,12 +188,14 @@ const MyPage: React.FC<MyPageProps> = ({
 
       alert("저장되었습니다.");
       
+      // 닉네임 변경 시 로컬스토리지 업데이트
       localStorage.setItem("username", editForm.name);
       window.location.reload(); 
 
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert("저장에 실패했습니다. 잠시 후 다시 시도해주세요.");
+      const msg = error.response?.data?.detail || "저장에 실패했습니다.";
+      alert(msg);
     }
   };
 
@@ -219,9 +231,11 @@ const MyPage: React.FC<MyPageProps> = ({
     }
   };
 
+  // --- 약 상세 페이지 이동 ---
   const handlePillClick = (itemSeq: string) => {
-    if (onPillClick) onPillClick(itemSeq);
-    else navigate(`/pills/${itemSeq}`);
+    // 상세 페이지 경로로 이동 (라우터 설정에 따라 다를 수 있음)
+    // 보통 /pills/:id 또는 /search/detail/:id 등을 사용
+    navigate(`/pills/${itemSeq}`); 
   };
 
   if (loading) return <div className="text-center py-20 text-sage">로딩 중...</div>;
@@ -308,7 +322,7 @@ const MyPage: React.FC<MyPageProps> = ({
       {viewMode === "main" && (
         <div className="animate-fade-in">
           <div className="p-5 pb-2">
-            <h1 className="text-2xl font-bold text-charcoal">마이페이지</h1>
+            <h1 className="text-2xl font-bold text-charcoal">마이페이지</h1>
           </div>
 
           <div className="mx-5 p-5 bg-white border border-gray-100 rounded-2xl shadow-sm flex items-center justify-between mb-6">
@@ -322,7 +336,7 @@ const MyPage: React.FC<MyPageProps> = ({
               </div>
               <div>
                 <h2 className="text-lg font-bold text-charcoal">{profile?.name}</h2>
-                <p className="text-sm text-gray-400">{profile?.username}</p>
+                <p className="text-sm text-gray-400">{profile?.email || profile?.username}</p>
               </div>
             </div>
             
@@ -351,36 +365,69 @@ const MyPage: React.FC<MyPageProps> = ({
             </div>
 
             <div className="bg-gray-50 rounded-2xl p-4 min-h-[200px]">
+              {/* 최근 검색 탭 */}
               {activeTab === "history" && (
                 <ul className="space-y-2">
-                  {history.length === 0 ? <EmptyState text="기록이 없습니다." /> : history.map((item, idx) => (
+                  {searchHistory.length === 0 ? <EmptyState text="최근 검색 기록이 없습니다." /> : searchHistory.map((item, idx) => (
                     <li key={idx} onClick={() => onSearchClick(item.keyword)} className="flex justify-between p-3 bg-white rounded-xl shadow-sm cursor-pointer hover:shadow-md transition-shadow">
                       <span className="font-bold text-charcoal">{item.keyword}</span>
-                      <span className="text-xs text-gray-400">{new Date(item.created_at).toLocaleDateString()}</span>
+                      <span className="text-xs text-gray-400">
+                        {item.created_at ? new Date(item.created_at).toLocaleDateString() : ""}
+                        </span>
                     </li>
                   ))}
                 </ul>
               )}
-              {activeTab === "posts" && (
-                 <div className="space-y-2">
-                 {posts.length === 0 ? <EmptyState text="작성한 글이 없습니다." /> : posts.map((post, idx) => (
-                   <div key={idx} onClick={() => onPostClick(post.id)} className="p-3 bg-white rounded-xl shadow-sm cursor-pointer flex justify-between hover:shadow-md transition-shadow">
-                     <span className="font-bold text-charcoal truncate">{post.title}</span>
-                     <span className="text-xs text-gray-400 whitespace-nowrap">조회 {post.views}</span>
-                   </div>
-                 ))}
-               </div>
-              )}
+
+              {/* 내가 쓴 글 탭 */}
+            {activeTab === "posts" && (
+              <div className="space-y-2">
+                {posts.length === 0 ? (
+                  <EmptyState text="작성한 글이 없습니다." />
+                ) : (
+                  posts.map((post, idx) => {
+                    // ✅ 바꾼 이름에 맞춰서 매핑 테이블 수정
+                    const categoryLabels: { [key: string]: string } = {
+                      free: "영양제 꿀조합",
+                      review: "복용 후기",
+                      qna: "QNA",
+                    };
+
+                    return (
+                      <div key={idx} onClick={() => onPostClick(post.id)} className="p-3 bg-white rounded-xl shadow-sm cursor-pointer flex justify-between hover:shadow-md transition-shadow">
+                        <div className="flex flex-col">
+                          {/* ✅ 여기서 바뀐 이름이 출력됩니다 */}
+                          <span className="text-xs text-[#718355] mb-1 font-bold">
+                            [{categoryLabels[post.category] || post.category}]
+                          </span>
+                          <span className="font-bold text-charcoal truncate">{post.title}</span>
+                        </div>
+                        <div className="flex flex-col items-end justify-center text-xs text-gray-400">
+                          <span>{new Date(post.created_at).toLocaleDateString()}</span>
+                          <span>조회 {post.views}</span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
+
+              {/* 찜한 약 탭 */}
               {activeTab === "scraps" && (
                 <div className="grid grid-cols-1 gap-2">
                 {scraps.length === 0 ? <EmptyState text="찜한 약이 없습니다." /> : scraps.map((pill, idx) => (
-                  <div key={idx} onClick={() => handlePillClick(pill.item_name)} className="p-3 bg-white rounded-xl shadow-sm cursor-pointer flex gap-3 items-center hover:shadow-md transition-shadow">
-                     <div className="w-10 h-10 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                        {pill.item_image && <img src={pill.item_image} alt="" className="w-full h-full object-cover" />}
+                  <div key={idx} onClick={() => handlePillClick(pill.item_seq)} className="p-3 bg-white rounded-xl shadow-sm cursor-pointer flex gap-3 items-center hover:shadow-md transition-shadow">
+                     <div className="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 border border-gray-100">
+                        {pill.item_image ? (
+                            <img src={pill.item_image} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">No Img</div>
+                        )}
                      </div>
                      <div className="overflow-hidden">
-                       <div className="text-[10px] text-olive-primary">{pill.entp_name}</div>
-                       <div className="font-bold text-sm truncate">{pill.item_name}</div>
+                       <div className="text-[10px] text-olive-primary font-bold">{pill.entp_name}</div>
+                       <div className="font-bold text-sm truncate text-charcoal">{pill.item_name}</div>
                      </div>
                   </div>
                 ))}
@@ -423,17 +470,17 @@ const PasswordChangeModal = ({ onClose }: { onClose: () => void }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 animate-fade-in">
       <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-xl animate-fade-in-up">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-bold text-charcoal">비밀번호 변경</h3>
-          <button onClick={onClose}><X size={20} className="text-gray-400" /></button>
+          <button onClick={onClose}><X size={20} className="text-gray-400 hover:text-charcoal" /></button>
         </div>
         <div className="space-y-4">
           <InputGroup label="현재 비밀번호" type="password" value={currentPw} onChange={setCurrentPw} placeholder="현재 비밀번호 입력" />
           <InputGroup label="새 비밀번호" type="password" value={newPw} onChange={setNewPw} placeholder="새 비밀번호 입력" />
           <InputGroup label="새 비밀번호 확인" type="password" value={confirmPw} onChange={setConfirmPw} placeholder="한 번 더 입력" />
-          <button onClick={handleSubmit} className="w-full py-3 bg-olive-primary text-white rounded-xl font-bold mt-2">변경하기</button>
+          <button onClick={handleSubmit} className="w-full py-3 bg-olive-primary text-white rounded-xl font-bold mt-2 hover:bg-[#5a7566] transition-colors">변경하기</button>
         </div>
       </div>
     </div>
@@ -462,7 +509,7 @@ function TabButton({ active, onClick, icon, children }: any) {
     <button
       onClick={onClick}
       className={`flex items-center gap-2 px-4 py-2 font-bold text-sm border-b-2 transition-all whitespace-nowrap ${
-        active ? "border-olive-primary text-olive-primary" : "border-transparent text-gray-400"
+        active ? "border-olive-primary text-olive-primary" : "border-transparent text-gray-400 hover:text-charcoal"
       }`}
     >
       {icon} {children}
@@ -471,5 +518,12 @@ function TabButton({ active, onClick, icon, children }: any) {
 }
 
 function EmptyState({ text }: { text: string }) {
-  return <div className="text-center py-10 text-gray-400 text-sm">{text}</div>;
+  return (
+    <div className="flex flex-col items-center justify-center py-10 gap-2">
+      <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-300">
+        <AlertTriangle size={20} />
+      </div>
+      <div className="text-gray-400 text-sm">{text}</div>
+    </div>
+  );
 }

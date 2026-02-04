@@ -41,24 +41,27 @@ const CommunityDetail: React.FC<CommunityDetailProps> = ({
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [postData, commentsData, myData] = await Promise.all([
-          getPostDetail(postId),
-          getComments(postId),
+        
+        // ✅ [수정] res의 타입을 'any'로 지정해서 속성 체크를 통과시킵니다.
+        const [res, myData]: [any, any] = await Promise.all([
+          getPostDetail(postId), 
           getMyProfile().catch(() => null)
         ]);
 
-        setPost(postData);
-        setComments(commentsData);
+        // 이제 res.post와 res.comments를 마음껏 쓸 수 있습니다.
+        setPost(res.post); 
+        setComments(res.comments || []); 
         setMyProfile(myData); 
 
-        // @ts-ignore
-        if (postData.is_liked) {
+        // 좋아요 여부 체크도 res.post 기준으로 수정
+        if (res.post && res.post.is_liked) {
           setIsLiked(true);
         } else {
           setIsLiked(false);
         }
+        
       } catch (err) {
-        console.error(err);
+        console.error("데이터 로딩 에러:", err);
         alert("게시글을 불러오지 못했습니다.");
         onBack();
       } finally {
@@ -67,7 +70,6 @@ const CommunityDetail: React.FC<CommunityDetailProps> = ({
     };
     fetchData();
   }, [postId, onBack]);
-
   const handleDeletePost = async () => {
     if (!window.confirm("정말 이 글을 삭제하시겠습니까?")) return;
     const token = localStorage.getItem("token");
@@ -175,7 +177,7 @@ const CommunityDetail: React.FC<CommunityDetailProps> = ({
       <article className="bg-white rounded-3xl shadow-sm border border-sage/20 p-8 mb-8">
         <div className="mb-6">
           <span className="bg-olive-primary/10 text-olive-primary px-3 py-1 rounded-full text-xs font-bold mb-3 inline-block">
-            {post.category === "combo" ? "영양제 꿀조합" : post.category === "qna" ? "이 약 뭔가요?" : "복용 후기"}
+            {post.category === "free" ? "영양제 꿀조합" : post.category === "qna" ? "질문" : post.category === "review" ? "복용 후기" : "기타"}
           </span>
           <h1 className="text-3xl font-extrabold text-charcoal mb-3 leading-tight">{post.title}</h1>
           <div className="flex items-center gap-3 text-sm text-gray-400 font-medium">

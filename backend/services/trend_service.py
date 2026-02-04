@@ -6,7 +6,7 @@ import datetime
 def update_daily_trends():
     """
     [자동화 로직]
-    최근 7일간 사용자들의 검색어(search_logs)를 분석하여
+    최근 7일간 사용자들의 검색어(search_history)를 분석하여
     많이 검색된 약품의 인기도 점수(popularity_score)를 가산합니다.
     """
     conn = get_conn()
@@ -18,10 +18,10 @@ def update_daily_trends():
             # (실제 배포시엔 'trend_score' 컬럼을 따로 두는 게 좋지만, 지금은 popularity_score에 더하는 방식 사용)
             
             # 2. 최근 7일간 검색어 통계 뽑기
-            # search_logs 테이블이 있어야 합니다.
+           
             sql_stats = """
                 SELECT keyword, COUNT(*) as search_cnt 
-                FROM search_logs 
+                FROM search_history
                 WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
                 GROUP BY keyword
                 HAVING search_cnt > 2  -- 최소 3번 이상 검색된 것만 반영 (노이즈 제거)

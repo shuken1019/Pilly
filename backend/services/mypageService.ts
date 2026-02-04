@@ -33,11 +33,21 @@ export async function getMyProfile() {
   return res.data;
 }
 
-// 검색 기록 조회
+
+
+// backend/services/mypageService.ts
+
+// 🚨 파일 안에 이 함수가 '딱 하나'만 있어야 합니다!
+// ✅ 수정 코드 (맞는 예)
 export async function getMyHistory() {
-  const res = await api.get("/mypage/history");
-  // 백엔드가 {"items": [...]} 형태로 반환한다고 가정
-  return res.data.items || [];
+  try {
+    // /api를 제거하고 /mypage/search-history 만 적으세요.
+    const response = await api.get('/mypage/search-history'); 
+    return response.data;
+  } catch (error) {
+    console.error("검색 기록 로딩 실패:", error);
+    return { items: [] };
+  }
 }
 
 // 내가 쓴 글 조회
@@ -94,3 +104,5 @@ export const withdrawAccount = async () => {
   const response = await api.delete("/mypage/profile");
   return response.data;
 };
+
+// backend/services/mypageService.ts

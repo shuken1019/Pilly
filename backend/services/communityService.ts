@@ -56,12 +56,13 @@ export async function getPosts(category: string): Promise<CommunityPost[]> {
 }
 
 /* 🟢 게시글 상세 */
-export async function getPostDetail(postId: number): Promise<CommunityPost> {
+// Promise<CommunityPost>를 Promise<any>로 바꿉니다.
+export async function getPostDetail(postId: number): Promise<any> {
   const token = localStorage.getItem("token");
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
   const res = await axios.get(`${API_URL}/post/${postId}`, { headers });
-  return res.data;
+  return res.data; // 이제 여기서 { post, comments }가 나가도 화내지 않습니다.
 }
 
 /* 🟢 게시글 작성 */

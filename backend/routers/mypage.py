@@ -1,14 +1,12 @@
-# backend/routers/mypage.py
-
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File # 👈 UploadFile, File 추가됨
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from typing import Optional
 from db import get_conn
 from routers.auth import get_current_user
-from utils.security import verify_password, get_password_hash # 비밀번호 변경용
-import shutil # 👈 파일 저장용
-import os     # 👈 경로 설정용
-import uuid   # 👈 고유 파일명용
+from utils.security import verify_password, get_password_hash
+import shutil
+import os
+import uuid
 
 router = APIRouter(prefix="/api/mypage", tags=["mypage"])
 
@@ -30,7 +28,7 @@ def get_my_profile(current_user: dict = Depends(get_current_user)):
     }
 
 # ---------------------------------------------------
-# 2. 프로필 정보 수정 (텍스트)
+# 2. 프로필 정보 수정
 # ---------------------------------------------------
 class ProfileUpdate(BaseModel):
     name: str 
@@ -44,32 +42,18 @@ def update_my_profile(data: ProfileUpdate, current_user: dict = Depends(get_curr
     conn = get_conn()
     try:
         with conn.cursor() as cur:
-            # 닉네임 중복 체크 (내 닉네임 아닐 때만)
             if data.name != current_user['name']:
                 cur.execute("SELECT id FROM users WHERE name = %s", (data.name,))
                 if cur.fetchone():
                     raise HTTPException(status_code=400, detail="이미 사용 중인 닉네임입니다.")
 
-            # 정보 업데이트
             sql = """
                 UPDATE users 
-                SET name = %s, 
-                    real_name = %s, 
-                    birthdate = %s, 
-                    phone = %s, 
-                    email = %s
+                SET name = %s, real_name = %s, birthdate = %s, phone = %s, email = %s
                 WHERE username = %s
             """
-            cur.execute(sql, (
-                data.name, 
-                data.real_name, 
-                data.birthdate, 
-                data.phone, 
-                data.email, 
-                current_user['username']
-            ))
+            cur.execute(sql, (data.name, data.real_name, data.birthdate, data.phone, data.email, current_user['username']))
             conn.commit()
-            
             return {"message": "프로필이 성공적으로 수정되었습니다."}
     except Exception as e:
         print(f"프로필 수정 에러: {e}")
@@ -91,63 +75,46 @@ def update_my_password(data: PasswordUpdate, current_user: dict = Depends(get_cu
         with conn.cursor() as cur:
             cur.execute("SELECT password FROM users WHERE id = %s", (current_user['id'],))
             db_user = cur.fetchone()
-            
-            if not db_user:
-                raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
-                
-            if not verify_password(data.current_password, db_user['password']):
+            if not db_user or not verify_password(data.current_password, db_user['password']):
                 raise HTTPException(status_code=400, detail="현재 비밀번호가 일치하지 않습니다.")
             
             new_hashed_pw = get_password_hash(data.new_password)
-            
             cur.execute("UPDATE users SET password = %s WHERE id = %s", (new_hashed_pw, current_user['id']))
             conn.commit()
-            
             return {"message": "비밀번호가 성공적으로 변경되었습니다."}
     finally:
         conn.close()
 
 # ---------------------------------------------------
-# 4. 프로필 이미지 업로드 (여기가 문제였던 부분)
+# 4. 프로필 이미지 업로드
 # ---------------------------------------------------
 @router.post("/profile/image")
 async def upload_profile_image(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
     try:
-        # 파일 저장 위치 (backend/uploads 폴더)
         UPLOAD_DIR = "uploads"
-        
-        # 파일명 중복 방지 (UUID 사용)
         file_extension = file.filename.split(".")[-1]
         unique_filename = f"{current_user['username']}_{uuid.uuid4()}.{file_extension}"
         file_path = os.path.join(UPLOAD_DIR, unique_filename)
         
-        # 서버에 파일 저장
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
             
-      
         image_url = f"http://3.38.78.49:8000/uploads/{unique_filename}"
         
-        # DB 업데이트
         conn = get_conn()
         with conn.cursor() as cur:
-            cur.execute(
-                "UPDATE users SET profile_image = %s WHERE id = %s", 
-                (image_url, current_user['id'])
-            )
+            cur.execute("UPDATE users SET profile_image = %s WHERE id = %s", (image_url, current_user['id']))
             conn.commit()
         conn.close()
-        
         return {"imageUrl": image_url}
-        
     except Exception as e:
         print(f"이미지 업로드 실패: {e}")
         raise HTTPException(status_code=500, detail="이미지 저장 중 오류가 발생했습니다.")
 
 # ---------------------------------------------------
-# 5. 기타 마이페이지 기능 (조회)
+# 5. 검색 기록 조회 (search-history) - 404 해결용
 # ---------------------------------------------------
-@router.get("/history")
+@router.get("/search-history")  # ✅ 프론트엔드 요청(/api/mypage/search-history)과 일치시킴
 def get_my_search_history(user: dict = Depends(get_current_user)):
     conn = get_conn()
     try:
@@ -155,7 +122,7 @@ def get_my_search_history(user: dict = Depends(get_current_user)):
             cur.execute(
                 """
                 SELECT id, keyword, created_at
-                FROM search_logs
+                FROM search_history
                 WHERE user_id = %s
                 ORDER BY created_at DESC
                 LIMIT 10
@@ -166,11 +133,15 @@ def get_my_search_history(user: dict = Depends(get_current_user)):
     finally:
         conn.close()
 
+# ---------------------------------------------------
+# 6. 내가 쓴 글 조회
+# ---------------------------------------------------
 @router.get("/posts")
 def get_my_posts(user: dict = Depends(get_current_user)):
     conn = get_conn()
     try:
         with conn.cursor() as cur:
+            # like_count 컬럼이 DB에 없으면 여기서 500 에러가 납니다. (아까 추가했으니 괜찮을 겁니다)
             cur.execute(
                 """
                 SELECT id, category, title, created_at, views, like_count
@@ -185,6 +156,9 @@ def get_my_posts(user: dict = Depends(get_current_user)):
     finally:
         conn.close()
 
+# ---------------------------------------------------
+# 7. 찜한 약 조회 (scraps)
+# ---------------------------------------------------
 @router.get("/scraps")
 def my_scraps(user: dict = Depends(get_current_user)):
     conn = get_conn()
@@ -214,16 +188,17 @@ def my_scraps(user: dict = Depends(get_current_user)):
             return {"items": cur.fetchall()}
     finally:
         conn.close()
-        # ✅ [추가] 회원 탈퇴 API
+
+# ---------------------------------------------------
+# 8. 회원 탈퇴
+# ---------------------------------------------------
 @router.delete("/profile")
 def withdraw_account(current_user: dict = Depends(get_current_user)):
     conn = get_conn()
     try:
         with conn.cursor() as cur:
-            # 유저 삭제 쿼리 실행
             cur.execute("DELETE FROM users WHERE id = %s", (current_user['id'],))
             conn.commit()
-            
             return {"message": "회원 탈퇴가 완료되었습니다."}
     except Exception as e:
         print(f"탈퇴 에러: {e}")
