@@ -18,7 +18,8 @@ AI 약사 1:1 상담: 식별된 약 정보를 바탕으로 LLM(OpenAI/Gemini)이
 
 복약 커뮤니티: 사용자 간 복약 후기 및 건강 정보를 공유할 수 있는 커뮤니티 공간을 제공합니다. 
 
-🏗 System Architecture
+ 
+ System Architecture
 Pilly는 확장성과 비동기 처리를 고려하여 설계되었습니다. 
 
 코드 스니펫
@@ -38,6 +39,10 @@ Infrastructure & DevOps
 AWS EC2 (Ubuntu): 서비스 호스팅 및 systemd를 이용한 무중단 서버 운영. 
 
 Nginx: Reverse Proxy 및 정적 파일 서빙 최적화.
+
+
+http://3.38.78.49/
+
 
 Backend
 
