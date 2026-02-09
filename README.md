@@ -87,5 +87,3 @@ Frontend
 Bash
 npm install
 npm run dev
-
-Author: [김수연]  Contact:shuken1019@gmail.com
