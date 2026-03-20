@@ -1,8 +1,0 @@
-# 👇 path: 뒤에 띄어쓰기 한 칸 필수! 경로에 backend가 포함되어야 합니다.
-path: /Users/yummy/Documents/soo/Pilly/backend/pilly-project1.v1i.yolov8
-train: train/images
-val: valid/images
-test: test/images
-
-nc: 48
-names: ['Acecool', 'Allerin', 'BI-Tilin', 'Bacilliformis', 'Besti-on', 'Concerta', 'Distec F', 'Elexin', 'Erdoraon', 'Fenocle', 'Flasinyl', 'Gaster', 'Grandaxin', 'Humosa', 'Indenol', 'Isofen', 'Lafubis', 'Lapabutine', 'Lebamotin', 'Lecox', 'Leperisone', 'Lexofen', 'Mosamir', 'Motilitone', 'Myoben', 'Neomedicough', 'Polybutine', 'Prilin', 'Q-Rokel', 'RGA', 'Rebamipid', 'Septrin', 'Solondo', 'Sto M', 'Thermozen', 'Tiparone', 'Traline', 'Trazodone HCl', 'Unizac', 'Upadin', 'Yaz', 'Zanapam', 'Zopista', 'gamod', 'liposic', 'pills1', 'ticlo', 'vinyl']

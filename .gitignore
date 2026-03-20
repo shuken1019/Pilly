@@ -60,6 +60,13 @@ backend/models/*.pt
 # 데이터셋 (용량이 커서 제외)
 datasets/
 backend/datasets/
+.archive/
+
+# 로컬 백업 SQL 덤프
+backup.sql
+data_backup.sql
+pill_easy_info.sql
+pill_mfds.sql
 
 # YOLO 학습 결과 로그
 runs/

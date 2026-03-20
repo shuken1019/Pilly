@@ -1,5 +1,5 @@
 import axios from "axios";
-import { Pill } from "./api"; // 경로가 맞는지 확인해주세요 (types.ts 등)
+import { Pill } from "./api";
 
 // 1. 공통 Base URL 설정 (/api 까지)
 // 이렇게 해야 /api/mypage 와 /api/users, /api/auth 등을 모두 호출할 수 있습니다.
@@ -28,21 +28,13 @@ api.interceptors.request.use((config) => {
 
 // 내 프로필 조회
 export async function getMyProfile() {
-  // GET http://3.38.78.49:8000/api/mypage/profile
   const res = await api.get("/mypage/profile");
   return res.data;
 }
 
-
-
-// backend/services/mypageService.ts
-
-// 🚨 파일 안에 이 함수가 '딱 하나'만 있어야 합니다!
-// ✅ 수정 코드 (맞는 예)
 export async function getMyHistory() {
   try {
-    // /api를 제거하고 /mypage/search-history 만 적으세요.
-    const response = await api.get('/mypage/search-history'); 
+    const response = await api.get("/mypage/search-history");
     return response.data;
   } catch (error) {
     console.error("검색 기록 로딩 실패:", error);
@@ -70,8 +62,6 @@ export async function getMyScrappedPills(): Promise<Pill[]> {
 
 // ✅ [수정] 프로필 정보 수정 (닉네임, 실명, 생일, 폰, 이메일)
 export const updateProfileInfo = async (data: any) => {
-  // 백엔드 구현에 따라 경로 수정 (/users/me 또는 /mypage/profile)
-  // 여기서는 일관성을 위해 /mypage/profile (PUT)로 가정합니다.
   const response = await api.put("/mypage/profile", data);
   return response.data;
 };
@@ -79,17 +69,20 @@ export const updateProfileInfo = async (data: any) => {
 // ✅ [추가] 프로필 이미지 업로드
 export const updateProfileImage = async (file: File) => {
   const formData = new FormData();
-  formData.append("file", file); 
+  formData.append("file", file);
 
   const response = await api.post("/mypage/profile/image", formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
   // 변경된 이미지 URL을 반환해야 프론트에서 즉시 반영 가능
-  return response.data.imageUrl; 
+  return response.data.imageUrl;
 };
 
 // ✅ [추가] 비밀번호 변경
-export const updatePassword = async (currentPassword: string, newPassword: string) => {
+export const updatePassword = async (
+  currentPassword: string,
+  newPassword: string
+) => {
   const response = await api.put("/mypage/profile/password", {
     current_password: currentPassword,
     new_password: newPassword,
@@ -99,17 +92,11 @@ export const updatePassword = async (currentPassword: string, newPassword: strin
 
 // ✅ [추가] 회원 탈퇴
 export const withdrawAccount = async () => {
-  // 탈퇴는 보통 Auth 관련이므로 /auth/me 또는 /users/me 일 수 있습니다.
-  // 여기서는 /mypage/profile (DELETE)로 통일하거나 백엔드 라우터에 맞춥니다.
   const response = await api.delete("/mypage/profile");
   return response.data;
 };
 
-// backend/services/mypageService.ts 에 추가
 export const deleteHistoryItem = async (historyId: number) => {
-  const token = localStorage.getItem("token");
-  const response = await axios.delete(`${API_URL}/pills/history/${historyId}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const response = await api.delete(`/pills/history/${historyId}`);
   return response.data;
 };

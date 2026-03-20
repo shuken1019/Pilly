@@ -6,9 +6,8 @@ import AboutPage from "./components/AboutPage";
 import SearchSection from "./components/SearchSection";
 import AiSearchSection from "./components/AiSearchSection";
 import Footer from "./components/Footer";
-import ResultModal from "./components/ResultModal";
 import AuthModal from "./components/AuthModal";
-import { ViewState, PillData } from "./types";
+import { ViewState } from "./types";
 import { SearchFilters } from "./backend/services/api";
 import CommunityList from "./components/CommunityList";
 import CommunityWrite from "./components/CommunityWrite";
@@ -28,9 +27,6 @@ const App: React.FC = () => {
 
   const [viewState, setViewState] = useState<ViewState>(ViewState.HOME);
   const [authView, setAuthView] = useState<ViewState | null>(null);
-
-  const [modalOpen, setModalOpen] = useState(false);
-  const [pillData, setPillData] = useState<PillData | null>(null);
   const [selectedPostId, setSelectedPostId] = useState<number | null>(null);
   const [editPostId, setEditPostId] = useState<number | null>(null);
   const [externalFilters, setExternalFilters] = useState<SearchFilters | null>(
@@ -119,14 +115,6 @@ const App: React.FC = () => {
     navigate(path);
   };
 
-  const handleImageUpload = async (file: File) => {
-    alert("이미지 업로드 기능 연결 필요: " + file.name);
-  };
-  const closeModal = () => {
-    setModalOpen(false);
-    setPillData(null);
-  };
-
   useEffect(() => {
     if (location.state?.targetView === "COMMUNITY_DETAIL") {
       const { postId } = location.state;
@@ -151,8 +139,10 @@ const App: React.FC = () => {
     };
     window.addEventListener("pilly:go-search", handler as EventListener);
     window.addEventListener("pilly:open-login", loginHandler);
-    return () =>
+    return () => {
       window.removeEventListener("pilly:go-search", handler as EventListener);
+      window.removeEventListener("pilly:open-login", loginHandler);
+    };
   }, [navigate]);
 
   const renderContent = () => {
@@ -270,12 +260,6 @@ const App: React.FC = () => {
       <main className="flex-grow">{renderContent()}</main>
       <Footer />
       <ChatBot isOpen={isChatOpen} setIsOpen={setIsChatOpen} />
-      <ResultModal
-        isOpen={modalOpen}
-        onClose={closeModal}
-        data={pillData}
-        isLoading={false}
-      />
 
       {authView && (
         <AuthModal

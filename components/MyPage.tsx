@@ -23,8 +23,6 @@ import {
   withdrawAccount,
   deleteHistoryItem,
 } from "../backend/services/mypageService"; // 경로 확인 필요 (api_mypage.ts 파일명에 맞게)
-import { Pill } from "../backend/services/api";
-import { useNavigate } from "react-router-dom";
 
 // --- 타입 정의 ---
 interface Profile {
@@ -53,6 +51,13 @@ interface MyPost {
   like_count: number;
 }
 
+interface ScrapItem {
+  item_seq: string;
+  item_name: string;
+  entp_name: string;
+  item_image: string | null;
+}
+
 interface MyPageProps {
   onPostClick: (postId: number) => void;
   onSearchClick: (keyword: string) => void;
@@ -67,14 +72,13 @@ const MyPage: React.FC<MyPageProps> = ({
   onSearchClick,
   onPillClick,
 }) => {
-  const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // --- 상태 관리 ---
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [searchHistory, setSearchHistory] = useState<any[]>([]);
+  const [searchHistory, setSearchHistory] = useState<HistoryItem[]>([]);
   const [posts, setPosts] = useState<MyPost[]>([]);
-  const [scraps, setScraps] = useState<any[]>([]); // Pill 타입 대신 유연하게 any 사용
+  const [scraps, setScraps] = useState<ScrapItem[]>([]);
   const [loading, setLoading] = useState(true);
   
   const [activeTab, setActiveTab] = useState<TabKey>("history");
@@ -246,11 +250,13 @@ const handleDeleteHistory = async (e: React.MouseEvent, id: number) => {
     }
   };
 
-  // --- 약 상세 페이지 이동 ---
-  const handlePillClick = (itemSeq: string) => {
-    // 상세 페이지 경로로 이동 (라우터 설정에 따라 다를 수 있음)
-    // 보통 /pills/:id 또는 /search/detail/:id 등을 사용
-    navigate(`/pills/${itemSeq}`); 
+  const handleScrapClick = (itemSeq: string) => {
+    if (onPillClick) {
+      onPillClick(itemSeq);
+      return;
+    }
+
+    onSearchClick(itemSeq);
   };
 
   if (loading) return <div className="text-center py-20 text-sage">로딩 중...</div>;
@@ -381,38 +387,36 @@ const handleDeleteHistory = async (e: React.MouseEvent, id: number) => {
 
             <div className="bg-gray-50 rounded-2xl p-4 min-h-[200px]">
               {/* 최근 검색 탭 */}
-              {{/* 최근 검색 탭 */}
-{activeTab === "history" && (
-  <ul className="space-y-2">
-    {searchHistory.length === 0 ? (
-      <EmptyState text="최근 검색 기록이 없습니다." />
-    ) : (
-      searchHistory.map((item, idx) => (
-        <li 
-          key={item.id || idx} 
-          onClick={() => onSearchClick(item.keyword)} 
-          className="group flex justify-between items-center p-4 bg-white rounded-xl shadow-sm cursor-pointer hover:shadow-md transition-all border border-transparent hover:border-gray-100"
-        >
-          <div className="flex flex-col">
-            <span className="font-bold text-charcoal">{item.keyword}</span>
-            <span className="text-[10px] text-gray-400 mt-1">
-              {item.created_at ? new Date(item.created_at).toLocaleDateString() : ""}
-            </span>
-          </div>
-          
-          {/* ❌ 삭제 버튼 */}
-          <button 
-            onClick={(e) => handleDeleteHistory(e, item.id)}
-            className="p-2 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors"
-            title="삭제"
-          >
-            <X size={18} />
-          </button>
-        </li>
-      ))
-    )}
-  </ul>
-)}
+              {activeTab === "history" && (
+                <ul className="space-y-2">
+                  {searchHistory.length === 0 ? (
+                    <EmptyState text="최근 검색 기록이 없습니다." />
+                  ) : (
+                    searchHistory.map((item) => (
+                      <li
+                        key={item.id}
+                        onClick={() => onSearchClick(item.keyword)}
+                        className="group flex justify-between items-center p-4 bg-white rounded-xl shadow-sm cursor-pointer hover:shadow-md transition-all border border-transparent hover:border-gray-100"
+                      >
+                        <div className="flex flex-col">
+                          <span className="font-bold text-charcoal">{item.keyword}</span>
+                          <span className="text-[10px] text-gray-400 mt-1">
+                            {item.created_at ? new Date(item.created_at).toLocaleDateString() : ""}
+                          </span>
+                        </div>
+
+                        <button
+                          onClick={(e) => handleDeleteHistory(e, item.id)}
+                          className="p-2 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors"
+                          title="삭제"
+                        >
+                          <X size={18} />
+                        </button>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              )}
 
               {/* 내가 쓴 글 탭 */}
             {activeTab === "posts" && (
@@ -452,7 +456,7 @@ const handleDeleteHistory = async (e: React.MouseEvent, id: number) => {
               {activeTab === "scraps" && (
                 <div className="grid grid-cols-1 gap-2">
                 {scraps.length === 0 ? <EmptyState text="찜한 약이 없습니다." /> : scraps.map((pill, idx) => (
-                  <div key={idx} onClick={() => handlePillClick(pill.item_seq)} className="p-3 bg-white rounded-xl shadow-sm cursor-pointer flex gap-3 items-center hover:shadow-md transition-shadow">
+                  <div key={idx} onClick={() => handleScrapClick(pill.item_seq)} className="p-3 bg-white rounded-xl shadow-sm cursor-pointer flex gap-3 items-center hover:shadow-md transition-shadow">
                      <div className="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 border border-gray-100">
                         {pill.item_image ? (
                             <img src={pill.item_image} alt="" className="w-full h-full object-cover" />
