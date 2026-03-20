@@ -1,94 +1,243 @@
-Pilly (필리) - AI 기반 알약 식별 및 복약 상담 플랫폼
+# Pilly
 
-Pilly는 혼동하기 쉬운 알약을 사진 한 장으로 식별하고, AI 약사와의 상담을 통해 정확한 복약 지도를 제공하는 하이브리드 AI 솔루션입니다. 
+알약 검색, 이미지 기반 식별, 복약 정보 확인, 커뮤니티 기능을 한 서비스 안에서 제공하는 웹 플랫폼입니다.  
+사용자가 약 이름을 직접 모르더라도 사진과 식별 정보를 바탕으로 약을 찾고, 필요한 복약 정보를 더 쉽게 확인할 수 있도록 만드는 것을 목표로 했습니다.
 
-Key Features
+## Preview
 
-스마트 약 사진 인식: YOLOv8 모델을 활용하여 사진 속 알약을 실시간으로 탐지하고 식별합니다. 
+- 서비스 성격: 의약품 탐색 + 복약 정보 확인 + 사용자 커뮤니티
+- 주요 사용자 흐름: 로그인 -> 알약 검색/이미지 분석 -> 상세 정보 확인 -> 찜/기록 관리 -> 커뮤니티 참여
+- 배포 환경: AWS EC2 기반 직접 배포
 
+## Why This Project
 
-AI 약사 1:1 상담: 식별된 약 정보를 바탕으로 LLM(OpenAI/Gemini)이 맞춤형 복약 상담을 제공합니다. 
+약 이름이 기억나지 않거나, 비슷하게 생긴 알약이 많아 사용자가 직접 정보를 찾기 어려운 경우가 많습니다.  
+Pilly는 이 문제를 줄이기 위해 텍스트 검색과 이미지 분석을 함께 제공하고, 검색한 약을 저장하거나 관련 경험을 커뮤니티에서 공유할 수 있도록 구성했습니다.
 
+포트폴리오 관점에서는 단순 CRUD를 넘어서 다음 요소를 함께 다뤘다는 점이 핵심입니다.
 
-의약품 상세 검색: 공공 의약품 데이터를 기반으로 성분, 효능, 주의사항 등 상세 정보를 제공합니다. 
+- 검색 UI와 상세 필터링
+- 이미지 업로드 기반 약 식별
+- 인증 및 사용자 상태 관리
+- 커뮤니티 기능
+- 관리자 기능
+- 실제 서버 배포와 운영 이슈 대응
 
+## Core Features
 
-소셜 로그인: 카카오 API를 이용한 간편 로그인 기능을 지원합니다. 
+### 1. 알약 검색
 
+- 약 이름, 제조사, 식별 문자, 색상, 제형 등으로 검색 가능
+- 인기순/조건 기반 조회 지원
+- 검색 결과에서 상세 정보와 찜 상태 확인 가능
 
-복약 커뮤니티: 사용자 간 복약 후기 및 건강 정보를 공유할 수 있는 커뮤니티 공간을 제공합니다. 
+### 2. 이미지 기반 알약 분석
 
- 
- System Architecture
-Pilly는 확장성과 비동기 처리를 고려하여 설계되었습니다. 
+- 사용자가 약 사진을 업로드하면 AI 분석 결과를 바탕으로 후보 약 목록 제공
+- 이미지 분석 결과와 공공 의약품 데이터를 연결해 상세 복약 정보 확인 가능
 
-코드 스니펫
-graph TD
-    A[React Frontend] -->|Auth & API Request| B[FastAPI Backend]
-    B -->|Object Detection| C[YOLOv8 Model]
-    B -->|Context Injection| D[OpenAI / Gemini API]
-    B -->|Data Query| E[MySQL Database]
-    B -->|Social Auth| F[Kakao Auth Server]
-    subgraph Cloud
-    B
-    E
-    end
-🛠 Tech Stack
-Infrastructure & DevOps
+### 3. 인증 및 사용자 기능
 
-AWS EC2 (Ubuntu): 서비스 호스팅 및 systemd를 이용한 무중단 서버 운영. 
+- 일반 회원가입 / 로그인
+- 카카오 로그인 연동
+- JWT 기반 인증 처리
+- 마이페이지에서 프로필, 찜 목록, 검색 기록, 게시글 관련 데이터 관리
 
-Nginx: Reverse Proxy 및 정적 파일 서빙 최적화.
+### 4. 커뮤니티
 
+- 게시글 작성 / 조회 / 수정 / 삭제
+- 댓글, 좋아요, 이미지 첨부 지원
+- 약 정보와 사용자 경험을 함께 다룰 수 있는 구조
 
-http://3.38.78.49/
+### 5. 관리자 기능
 
+- 사용자 관리
+- 게시글 관리
+- 통계 조회
+- 의약품 데이터 관리 일부 지원
 
-Backend
+## Tech Stack
 
-FastAPI: 비동기 처리를 통한 고성능 API 서버 구현. 
+### Frontend
 
+- React
+- TypeScript
+- Vite
+- React Router
+- Axios
+- React Dropzone
 
-MySQL: 공공 의약품 데이터 및 사용자 데이터 관리. 
+### Backend
 
-Kakao Login API & JWT: OAuth 2.0 기반 인증 및 토큰 보안 체계 구축.
+- FastAPI
+- Python
+- PyMySQL
+- JWT Authentication
 
-Frontend
-React (TypeScript): 안정적인 타입 시스템 기반의 컴포넌트 설계.
+### Data / AI
 
-Vite: 효율적인 빌드 및 개발 환경 구축.
+- MySQL
+- Google Gemini API
+- Google Vision
+- OpenCV
+- YOLO 기반 이미지 분석 실험 및 데이터셋 활용
 
-AI & Machine Learning
+### Infra
 
-YOLOv8: 알약 객체 탐지 모델 직접 학습 및 배포. 
+- AWS EC2 (Ubuntu)
+- Nginx
+- 직접 배포 및 서버 운영
 
+## Architecture
 
-OpenAI / Gemini: RAG 기반의 지능형 상담 엔진 구현. 
+```text
+Frontend (React / TypeScript)
+  -> API 호출
+Backend (FastAPI)
+  -> 인증 / 커뮤니티 / 마이페이지 / 알약 검색 / 이미지 분석 / 관리자 기능
+Database (MySQL)
+  -> 사용자 / 게시글 / 댓글 / 검색 기록 / 찜 / 의약품 데이터
+External Services
+  -> Kakao Login / Gemini / Google Vision
+```
 
-📈 Technical Challenges & Solutions
-1. 객체 탐지 모델 성능 최적화 (YOLOv8)
-문제: 유사한 색상과 형태를 가진 알약의 오인식 문제 발생.
+## Project Structure
 
-해결: Roboflow를 통해 100여 장의 이미지 커스텀 라벨링 및 조명/각도 증강(Augmentation) 적용.
+```text
+.
+├── components/           # 프론트 UI 컴포넌트
+├── hooks/                # 사용자 상태 등 커스텀 훅
+├── backend/
+│   ├── routers/          # FastAPI 라우터
+│   ├── services/         # 프론트 API 연동 서비스
+│   ├── schemas/          # 요청/응답 스키마
+│   ├── utils/            # 보안, 공통 유틸
+│   ├── uploads/          # 업로드 파일
+│   └── main.py           # FastAPI 엔트리포인트
+├── App.tsx               # 프론트 라우팅 및 화면 전환 중심
+└── package.json
+```
 
-결과: mAP50 0.992, Recall 1.0 달성으로 실전 탐지 신뢰도 확보.
+## What I Focused On
 
-2. 하이브리드 AI (Vision + LLM) 구현
+이 프로젝트에서 특히 신경 쓴 부분은 아래와 같습니다.
 
-해결: Vision AI가 식별한 ID를 DB와 매핑하여 전문 데이터를 추출하고, 이를 LLM에 Context로 주입하여 환각(Hallucination) 현상을 방지함. 
+- 검색, 이미지 분석, 커뮤니티처럼 성격이 다른 기능을 하나의 사용자 흐름으로 연결
+- 프론트와 백엔드가 나뉜 구조에서 인증 상태와 API 흐름을 안정적으로 유지
+- 실제 배포 환경에서 발생한 디스크 부족, 빌드 실패 같은 운영 문제를 직접 해결
+- 불필요한 코드와 자산을 정리하면서도 기존 기능이 깨지지 않도록 보수적으로 리팩터링
 
+## Troubleshooting
 
+### 1. EC2 서버 디스크 부족 문제
 
-How to Run
-Backend
-Bash
-cd backend
-pip install -r requirements.txt
-uvicorn main:app --reload
+문제:
+GPU가 없는 소형 EC2 인스턴스에서 Python 가상환경이 과도하게 커지며 서버가 느려지고 디스크 사용량이 급격히 증가했습니다.
 
+원인:
+PyTorch 설치 시 CPU 서버인데도 CUDA 관련 패키지가 함께 설치되어 가상환경 크기가 비정상적으로 커졌습니다.
 
+해결:
 
-Frontend
-Bash
+- 가상환경을 삭제 후 재구성
+- CPU 전용 `torch`로 재설치
+- 불필요한 대용량 자산과 임시 파일 정리
+
+결과:
+
+- Python 가상환경 크기 `7.6G -> 1.8G`
+- 루트 디스크 사용률 `93% -> 65%`
+- 서버 반응 속도와 유지보수성이 개선됨
+
+### 2. 프론트 프로덕션 빌드 실패
+
+문제:
+Vite 빌드 중 `file-selector` 패키지 내부 파일 해석 오류로 프로덕션 빌드가 실패했습니다.
+
+해결:
+
+- 문제 패키지 버전을 점검
+- `file-selector`를 안정적으로 동작하는 버전으로 고정
+- 빌드 재확인
+
+결과:
+
+- `vite build` 통과
+- 배포 직전 검증 흐름 안정화
+
+### 3. 코드베이스 정리와 기능 보존의 균형
+
+문제:
+프로젝트에 오래된 스크립트, 미사용 자산, 학습 데이터, 문서 파일이 함께 남아 있어 유지보수가 어려웠습니다.
+
+해결:
+
+- 실제 참조 여부를 확인한 뒤 미사용 파일을 단계적으로 제거
+- 백업 성격의 SQL 파일은 작업 루트에서 분리
+- 서비스 코드 정리 후 타입 체크와 문법 체크로 회귀 확인
+
+결과:
+
+- 프로젝트 루트가 단순해짐
+- 실행 경로 중심으로 구조가 더 명확해짐
+- 기능은 유지하면서 관리 비용 감소
+
+## Validation
+
+정리 후 아래 항목을 기준으로 동작 여부를 확인했습니다.
+
+- `tsc --noEmit` 통과
+- `vite build` 통과
+- FastAPI 주요 파이썬 파일 문법 검사 통과
+
+## How to Run
+
+### Frontend
+
+```bash
 npm install
 npm run dev
+```
+
+### Backend
+
+```bash
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn main:app --reload
+```
+
+## Environment Variables
+
+실행 환경에 따라 아래 값들이 필요합니다.
+
+- `GOOGLE_API_KEY`
+- `SECRET_KEY`
+- `ALGORITHM`
+- `KAKAO_CLIENT_ID`
+- DB 연결 관련 환경값
+
+또한 Google Vision 사용 시 서비스 계정 파일이 필요할 수 있습니다.
+
+## What I Would Improve Next
+
+- 테스트 코드 보강
+- 이미지 분석 정확도 개선 및 모델 운영 방식 분리
+- 프런트 번들 크기 최적화
+- 환경별 의존성 파일 분리
+- 배포 자동화 및 CI 파이프라인 추가
+
+## Portfolio Point
+
+이 프로젝트는 단순히 기능을 많이 붙인 프로젝트가 아니라,
+실제 서비스처럼 인증, 검색, AI 분석, 커뮤니티, 관리자 기능, 배포와 운영 이슈까지 하나의 흐름으로 다뤘다는 점에서 의미가 있습니다.
+
+특히 기능 개발뿐 아니라 다음과 같은 엔지니어링 역량을 보여주는 프로젝트로 활용할 수 있습니다.
+
+- 사용자 흐름 중심의 기능 설계
+- 프론트엔드와 백엔드 연동
+- 외부 API 연동
+- 실제 운영 환경 문제 해결
+- 리팩터링과 안정성 검증
